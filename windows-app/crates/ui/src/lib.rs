@@ -8,6 +8,7 @@
 pub mod detail;
 pub mod nav;
 pub mod now_playing;
+pub mod selection;
 pub mod shell;
 pub mod sidebar;
 pub mod theme;

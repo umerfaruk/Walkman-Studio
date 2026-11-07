@@ -567,9 +567,23 @@ verification.
       test already established — which also now exercises this view for real through
       `detail_router_renders_in_headless_frame_for_every_tab` and
       `shell_composes_in_headless_frame_for_representative_states`, both of which still pass.
-  - [~] 14.2 Implement `LibraryView` (All Songs): sortable multi-column table + search + batch-lyrics
+  - [x] 14.2 Implement `LibraryView` (All Songs): sortable multi-column table + search + batch-lyrics
         button + per-row context menu; shared selection (Shift-range/Ctrl-toggle) and 88pt inset.
     - _Requirements: 5.1, 2.9_
+    - Progress: `ui/src/views/library.rs`, plus a new `ui/src/selection.rs` factoring out the
+      Shift-range/Ctrl-toggle logic the task explicitly calls "shared" — every multi-select
+      table/grid from 14.3 onward reuses `selection::handle_click` rather than reimplementing it.
+      `Column` (Title/Artist/Album/Duration/Format) each sort ascending/descending via a
+      click-the-header-to-toggle-direction header row (R5.1's "multi-column sortable"); the
+      per-row context menu covers all five R5.1 actions (play/edit metadata/trim-cut/transfer/
+      delete) plus a `Find Lyrics…` button for the current selection (R5.1's batch-lyrics
+      button); the row list reserves `sizing::TABLE_BOTTOM_INSET` (R2.9). `AppState` gained
+      `walkman_tracks`/`library_view` (same currently-empty-until-task-18 plumbing pattern as
+      14.1's `local_tracks`/`local_folders`); `detail.rs`'s `NavTab::Library` arm now calls the
+      real view. 10 new tests (4 in `library.rs`, 6 in `selection.rs`), plus the existing
+      `detail_router_renders_in_headless_frame_for_every_tab`/
+      `shell_composes_in_headless_frame_for_representative_states` tests now exercise this view
+      for real too and still pass.
   - [~] 14.3 Implement `RecentlyAddedView`: time-scope picker (24h/7d/30d/All) + ranked table + batch
         lyrics.
     - _Requirements: 5.2_

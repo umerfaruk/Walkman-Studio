@@ -77,9 +77,11 @@ pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
                 &mut state.local_library_view,
             );
         }
+        NavTab::Library => {
+            crate::views::library::render(ui, &state.walkman_tracks, &mut state.library_view);
+        }
         NavTab::Overview
         | NavTab::SenseMe
-        | NavTab::Library
         | NavTab::RecentlyAdded
         | NavTab::Albums
         | NavTab::Artists

@@ -153,6 +153,14 @@ pub struct AppState {
     /// `LocalLibraryView`'s own UI state (display mode, sort, search, selection, open sheet,
     /// emitted commands).
     pub local_library_view: crate::views::local_library::LocalLibraryViewState,
+
+    // --- Walkman "All Songs" view data + state (task 14.2) ---
+    /// Every track on the connected Walkman's active drive. Empty until task 18 wires the real
+    /// scan/cache load in.
+    pub walkman_tracks: Vec<walkman_domain::models::Track>,
+    /// `LibraryView`'s own UI state (sort column/direction, search, selection, emitted
+    /// commands).
+    pub library_view: crate::views::library::LibraryViewState,
 }
 
 impl Default for AppState {
@@ -202,6 +210,9 @@ impl Default for AppState {
             local_tracks: Vec::new(),
             local_folders: Vec::new(),
             local_library_view: crate::views::local_library::LocalLibraryViewState::default(),
+
+            walkman_tracks: Vec::new(),
+            library_view: crate::views::library::LibraryViewState::default(),
         }
     }
 }
