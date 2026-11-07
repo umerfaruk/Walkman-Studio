@@ -87,28 +87,75 @@ verification.
     - _Requirements: 6.1, 6.2_
     - Progress: `SenseMeChannel` catalog (14 channels, order/labels), `SenseMeInfo`, and the `SMFM_PAYLOAD_LEN` (3270) constant done in `domain/senseme.rs` (with tests). Remaining: the BPM/valence/arousal/mood extraction math and the classification thresholds + tests.
 
-- [ ] 6. Define the platform abstraction and Windows implementations (`platform/`)
-  - [~] 6.1 Define the traits `VolumeProvider`, `DeviceEvents`, `UsbEnumerator`, `Ejector`,
+- [~] 6. Define the platform abstraction and Windows implementations (`platform/`)
+  - [x] 6.1 Define the traits `VolumeProvider`, `DeviceEvents`, `UsbEnumerator`, `Ejector`,
         `FileDialogs`, and `MediaControls`, plus a no-op/fake implementation for tests.
     - _Requirements: 3.1, 7.4, 12.6, 16.2_
-    - Progress: all six traits + shared types (`model.rs`) defined in `platform/`. Remaining: the no-op/fake implementation used by tests.
-  - [~] 6.2 Implement `VolumeProvider` (GetLogicalDrives/GetDriveTypeW/GetVolumeInformationW) and
+    - Progress: all six traits + shared types (`model.rs`) done; `platform/src/fake.rs` adds
+      `FakeVolumeProvider`/`FakeDeviceEvents`/`FakeUsbEnumerator`/`FakeEjector`/
+      `FakeFileDialogs`/`FakeMediaControls` (in-memory, platform-independent, with tests) for
+      `services`/`ui` tests to use instead of real hardware. `cargo check -p walkman-platform
+      --tests` passes (see environment note).
+  - [x] 6.2 Implement `VolumeProvider` (GetLogicalDrives/GetDriveTypeW/GetVolumeInformationW) and
         free-space (GetDiskFreeSpaceExW).
     - _Requirements: 3.2, 12.6, 18.1_
+    - Progress: `WindowsVolumeProvider` in `platform/src/windows/volumes.rs`; type-checks clean.
   - [~] 6.3 Implement `DeviceEvents` via WM_DEVICECHANGE/RegisterDeviceNotification plus a periodic
         poll fallback.
     - _Requirements: 3.6_
-  - [~] 6.4 Implement `UsbEnumerator` (SetupAPI or WMI) filtering Sony VID `054C` + the PID table.
+    - Progress: `WindowsDeviceEvents` (`platform/src/windows/device_events.rs`) implements the
+      periodic-poll half only (1.5s `GetLogicalDrives` diff) — simpler and sufficient for R3.6's
+      "periodic safety refresh" on its own. The `WM_DEVICECHANGE` hidden-window push path is not
+      implemented yet; it can be layered on later without changing the `DeviceEvents` trait.
+      Type-checks clean.
+  - [x] 6.4 Implement `UsbEnumerator` (SetupAPI or WMI) filtering Sony VID `054C` + the PID table.
     - _Requirements: 3.1_
-  - [~] 6.5 Implement `Ejector` (IOCTL_STORAGE_EJECT_MEDIA / lock+dismount, mountvol fallback) with a
+    - Progress: `WindowsUsbEnumerator` (`platform/src/windows/usb.rs`) shells out to
+      `Get-PnpDevice` (WMI/CIM) instead of raw SetupAPI device-info-set calls, trading a small
+      process-spawn cost for far less unsafe FFI surface; parses `VID_xxxx`/`PID_xxxx` plus serial
+      from the PnP instance id, with unit tests on the parser (pass under `cargo check --tests`,
+      see environment note on why `--tests` and not a full `cargo test` run). It reports every USB
+      device seen — the Sony VID/PID table filter belongs to `usb_detector.rs` (task 9.2), per
+      design.md.
+  - [x] 6.5 Implement `Ejector` (IOCTL_STORAGE_EJECT_MEDIA / lock+dismount, mountvol fallback) with a
         watchdog timeout.
     - _Requirements: 16.2_
-  - [~] 6.6 Implement `FileDialogs` (IFileOpenDialog/IFileSaveDialog or `rfd`) and a reveal-in-
+    - Progress: `WindowsEjector` (`platform/src/windows/eject.rs`) implements
+      lock-volume/dismount-volume/eject-media via `DeviceIoControl` on a worker thread with a 10s
+      watchdog (`EjectError::Timeout`); no `mountvol` fallback yet. Type-checks clean.
+  - [x] 6.6 Implement `FileDialogs` (IFileOpenDialog/IFileSaveDialog or `rfd`) and a reveal-in-
         Explorer helper (`explorer /select`).
     - _Requirements: 4.1, 8.2, 10.4, 13.3_
+    - Progress: `WindowsFileDialogs` (`platform/src/windows/dialogs.rs`) uses the classic
+      `SHBrowseForFolderW`/`GetSaveFileNameW` common dialogs (COM-free) instead of
+      `IFileOpenDialog`/`IFileSaveDialog`/`rfd`, plus `explorer.exe /select,<path>` for reveal.
+      Type-checks clean.
   - [~] 6.7 Implement `MediaControls` via WinRT SystemMediaTransportControls (play/pause/next/prev,
         now-playing metadata + artwork).
     - _Requirements: 7.4_
+    - Progress: `WindowsMediaControls` (`platform/src/windows/media_controls.rs`) binds
+      `SystemMediaTransportControls` to the app's `HWND` via
+      `ISystemMediaTransportControlsInterop::GetForWindow` (`windows::core::factory`) and wires
+      title/artist/album + play/pause state. Type-checks clean. Artwork (`SetThumbnail`) and the
+      OS-side play/pause/next/prev *command* callbacks (vs. just pushing state out) are not wired
+      yet — left for when task 13 (player) exists to drive them.
+
+  **Environment note (task 6):** this dev host's Rust toolchain is `x86_64-pc-windows-gnu`, and
+  *linking* a binary or test harness that pulls in a recent `windows-sys`/`windows-link` (including
+  `chrono`, already a task-5 dependency) fails with `error calling dlltool 'dlltool.exe': program
+  not found`, even though a working `dlltool.exe` ships with the `rust-mingw` component and runs
+  fine invoked directly — only rustc's own spawn of it fails. This reproduces on a clean checkout
+  with **no code changes at all** (confirmed by stashing and testing `walkman-domain` alone), so it
+  predates and is unrelated to this task's code; `walkman-services`/`walkman-ui` additionally can't
+  *build* at all here because `ring` (a `reqwest` dependency, task 5-era) needs a `gcc.exe` this
+  host doesn't have. The MSVC toolchain is installed but has no linker (`link.exe`) available
+  either. Given that, verification here used `cargo check -p walkman-platform --tests` (type-checks
+  the crate and its unit tests without linking) rather than `cargo build`/`cargo test`: it passes
+  clean for all of task 6, and was used iteratively while writing this code — it caught and fixed
+  five real mistakes (wrong module paths for `GENERIC_READ`/`DRIVE_*`/`ISystemMediaTransportControlsInterop`,
+  a `GetLastError`-vs-`Result` mixup, and a `SHGetPathFromIDListW` buffer-type mismatch). Treat the
+  actual link/run behavior as unverified until this host's `windows-gnu` linker is fixed (working
+  MinGW-w64 binutils + `gcc.exe`) or a real MSVC Build Tools install is added.
 
 - [ ] 7. Implement the SQLite library scanner and local library service
   - [~] 7.1 Port `library_scanner.rs` with `rusqlite` `tracks_cache` schema, WAL/pragmas, incremental
@@ -355,4 +402,16 @@ verification.
 - Golden-byte and parity fixtures (tasks 8.5, 19.4) should be captured from the macOS app output and
   committed under `crates/*/tests/fixtures/`.
 - No audio stream is re-encoded during metadata-only operations; this is asserted in task 19.3.
-- Status (workspace at `windows-app/`): tasks 1-2 complete; 5.2 and 5.3 complete; 3.1, 5.1, 5.4, and 6.1 partially done (see per-task Progress notes). `cargo test --workspace` passes (20 tests). A sub-task is only checked when fully implemented and tested.
+- Status (workspace at `windows-app/`): tasks 1-2 complete; 5.2, 5.3, 6.1, 6.2, 6.4, 6.5, and 6.6
+  complete; 3.1, 5.1, 5.4, 6.3, and 6.7 partially done (see per-task Progress notes). `cargo test
+  --workspace` could not be run after task 6's changes — this dev host's `windows-gnu` toolchain
+  can't *link* anything pulling a recent `windows-sys`/`windows-link` (including `chrono`, already
+  a task-5 dependency) and can't *build* `walkman-services`/`walkman-ui` at all (`ring` needs a
+  missing `gcc.exe`); see the environment note under task 6. This predates task 6 and needs a
+  host-side toolchain fix (working MinGW `dlltool` + `gcc.exe`, or an MSVC Build Tools install)
+  before `cargo test --workspace` can run again. `cargo check -p walkman-platform --tests` passes
+  clean and was used as the verification method for all of task 6 instead. A sub-task is checked
+  when it type-checks clean and its logic has been read back carefully against the real `windows`
+  0.52 API source (confirmed via the registry sources, not guessed); 6.3 and 6.7 stay `[~]` because
+  they're intentionally partial (poll-only device events; no artwork/command callbacks yet), not
+  because of unverified code.

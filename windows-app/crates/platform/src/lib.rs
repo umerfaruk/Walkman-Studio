@@ -10,6 +10,8 @@ use std::sync::mpsc::Receiver;
 pub mod model;
 pub use model::*;
 
+pub mod fake;
+
 #[cfg(windows)]
 pub mod windows;
 
