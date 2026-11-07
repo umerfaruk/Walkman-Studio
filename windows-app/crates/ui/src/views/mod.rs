@@ -8,3 +8,4 @@ pub mod hi_res;
 pub mod language_study;
 pub mod local_library;
 pub mod recently_added;
+pub mod senseme;

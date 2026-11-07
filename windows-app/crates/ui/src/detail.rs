@@ -108,11 +108,10 @@ pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
                 &mut state.device_overview_view,
             );
         }
-        NavTab::SenseMe
-        | NavTab::Playlists
-        | NavTab::Duplicates
-        | NavTab::Transfer
-        | NavTab::BackupRestore => {
+        NavTab::SenseMe => {
+            crate::views::senseme::render(ui, &state.walkman_tracks, &mut state.senseme_view);
+        }
+        NavTab::Playlists | NavTab::Duplicates | NavTab::Transfer | NavTab::BackupRestore => {
             section_placeholder(ui, section_title(tab), section_note(tab));
         }
     }

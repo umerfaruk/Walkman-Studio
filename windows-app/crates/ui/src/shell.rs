@@ -165,6 +165,14 @@ pub struct AppState {
     /// emitted commands).
     pub local_library_view: crate::views::local_library::LocalLibraryViewState,
 
+    // --- SensMe Channels carousel data + state (task 15.3) ---
+    //
+    // Reads the same `walkman_tracks` as the Walkman-library views below. Nothing populates
+    // `senseme_view.commands`' consumers yet (task 18).
+    /// `SenseMeChannelsView`'s own UI state (selected channel, shuffle seed, emitted
+    /// commands).
+    pub senseme_view: crate::views::senseme::SenseMeViewState,
+
     // --- Walkman "All Songs" view data + state (task 14.2) ---
     /// Every track on the connected Walkman's active drive. Empty until task 18 wires the real
     /// scan/cache load in.
@@ -246,6 +254,7 @@ impl Default for AppState {
             local_tracks: Vec::new(),
             local_folders: Vec::new(),
             local_library_view: crate::views::local_library::LocalLibraryViewState::default(),
+            senseme_view: crate::views::senseme::SenseMeViewState::default(),
 
             walkman_tracks: Vec::new(),
             library_view: crate::views::library::LibraryViewState::default(),

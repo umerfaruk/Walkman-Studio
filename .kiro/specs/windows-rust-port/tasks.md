@@ -673,7 +673,7 @@ verification.
       tile instead. 5 new tests; wired into `detail.rs`'s `NavTab::Overview` arm and new
       `AppState::devices`/`device_quick_stats`/`device_overview_view` fields.
 
-- [ ] 15. Build playback UI: now-playing bar, fullscreen player, SensMe channels
+- [x] 15. Build playback UI: now-playing bar, fullscreen player, SensMe channels
   - [x] 15.1 Implement `TrackPreviewBar` bound to the player (artwork, title/artist, transport,
         scrubber, open-inspector, open-fullscreen).
     - _Requirements: 7.2_
@@ -709,10 +709,30 @@ verification.
       and the "blurred ambient background" is a flat tint wash (egui's 2D painter has no blur
       filter) rather than a real blur of the (placeholder) artwork. 2 new tests, including a
       headless-frame render across 5 playback positions (before/mid/after the loaded lyrics).
-  - [~] 15.3 Implement `SenseMeChannelsView`: 3D cover-flow carousel of the 14 channels + Shuffle
+  - [x] 15.3 Implement `SenseMeChannelsView`: 3D cover-flow carousel of the 14 channels + Shuffle
         All, atmospheric backgrounds, gapless highlight-seek playback, live lyrics, analysis
         trigger.
     - _Requirements: 6.4, 6.5_
+    - Progress: `ui/src/views/senseme.rs`. Reuses the real `walkman_domain::senseme::
+      SenseMeChannel::ALL` (task 5.4's 14-channel catalog, already carrying display names and
+      tokens) and filters tracks by whether `Track::senseme_channels` contains a channel's
+      `channel_token()` — the same field `classify()` already populates, so "Shuffle All
+      Songs" needs no special case (every analyzed track carries that token). A toolbar
+      exposes a global "Shuffle All Songs" action and an "Analyze Library (n)" trigger for
+      every `!is_senseme_analyzed` track; the carousel itself is a 5-tile flat strip (selected
+      \u{B1}2) with Previous/Next buttons and click-to-select, and the selected channel's detail
+      panel gets Play/Shuffle buttons. Shuffling uses a small deterministic splitmix64
+      Fisher-Yates (`shuffled_ids`) rather than pulling in a `rand` dependency for one call
+      site. Three documented honest simplifications: the "3D cover-flow" is a flat strip (no
+      perspective transform in egui's 2D painter), "atmospheric backgrounds" are the existing
+      glass tiles (no per-channel art asset), and "live lyrics during SensMe playback" is not
+      a second lyrics renderer — Play/Shuffle are meant to hand off to the already-player-bound
+      fullscreen view from tasks 15.1/15.2, which already does karaoke lyrics; this view only
+      resolves *which* track ids to queue, emitting `PlayChannel`/`ShuffleChannel`/
+      `AnalyzeUnanalyzed` commands for task 18 to drain against the real player/analysis
+      service. 10 new tests, including a headless-frame render across empty/populated/
+      boundary-index states; wired into `detail.rs`'s `NavTab::SenseMe` arm (replacing its
+      placeholder) and a new `AppState::senseme_view` field.
 
 - [ ] 16. Build metadata editors, inspector, and artwork export
   - [~] 16.1 Implement `MetadataStudioView` inspector (300pt): artwork, metadata, specs, Edit button,
@@ -826,17 +846,20 @@ verification.
 - Golden-byte and parity fixtures (tasks 8.5, 19.4) should be captured from the macOS app output and
   committed under `crates/*/tests/fixtures/`.
 - No audio stream is re-encoded during metadata-only operations; this is asserted in task 19.3.
-- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, and 14 complete;
-  5.2, 5.3, 6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3,
-  9.4, 10.1, 10.2, 10.3, 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, and every 14.x subtask complete;
+- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, and 15
+  complete; 5.2, 5.3, 6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1,
+  9.2, 9.3, 9.4, 10.1, 10.2, 10.3, 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, and every 14.x/15.x
+  subtask complete;
   3.1, 5.1, 5.4, 6.3, and 6.7 partially done (see per-task Progress notes). The dev host switched
   to the MSVC toolchain (Visual Studio Build Tools installed,
   `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
   dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
   bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo test
-  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 368 tests) —
-  including task 13's player tests against this host's *real* audio output device (not mocked)
-  and task 14's headless-egui-frame render tests across every view/mode/sheet combination. 6.3
+  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 393 tests) —
+  including task 13's player tests against this host's *real* audio output device (not mocked),
+  task 15.1's test that the now-playing bar mirrors that same real, bound `Player`, and task
+  14/15's headless-egui-frame render tests across every view/mode/sheet/carousel-position
+  combination. 6.3
   and 6.7 stay `[~]` because they're intentionally partial (poll-only device events; no
   artwork/command callbacks yet); task 8.5 is checked off despite a known, documented gap (no
   real macOS-app-captured golden-byte fixtures exist in this repo, so the writers are
