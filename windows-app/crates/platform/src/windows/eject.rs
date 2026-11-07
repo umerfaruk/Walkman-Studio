@@ -1,8 +1,9 @@
-//! [`Ejector`] for Windows (spec task 6.5).
+//! [`Ejector`] for Windows (spec task 6.5/9.4).
 //!
-//! Mirrors `diskutil unmount`/`NSWorkspace.unmountAndEject`: open the volume, lock it, force a
-//! dismount, then ask the storage stack to eject the media — each step via `DeviceIoControl`. A
-//! watchdog thread bounds the whole sequence so a wedged drive can never hang the caller.
+//! Mirrors `diskutil unmount`/`NSWorkspace.unmountAndEject`: open the volume, flush any buffered
+//! writes, lock it, force a dismount, then ask the storage stack to eject the media — each step
+//! via `DeviceIoControl` (R16.2: "flush writes and then safely eject"). A watchdog thread bounds
+//! the whole sequence so a wedged drive can never hang the caller.
 
 use std::path::Path;
 use std::sync::mpsc::RecvTimeoutError;
@@ -10,7 +11,7 @@ use std::time::Duration;
 
 use windows::Win32::Foundation::{CloseHandle, ERROR_ACCESS_DENIED, GENERIC_READ, GENERIC_WRITE, HANDLE};
 use windows::Win32::Storage::FileSystem::{
-    CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
+    CreateFileW, FlushFileBuffers, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
 use windows::Win32::System::Ioctl::{FSCTL_DISMOUNT_VOLUME, FSCTL_LOCK_VOLUME};
 use windows::Win32::System::IO::DeviceIoControl;
@@ -59,6 +60,9 @@ impl WindowsEjector {
         .map_err(|_| EjectError::NotFound(mount.display().to_string()))?;
 
         let result = (|| -> Result<(), EjectError> {
+            unsafe {
+                let _ = FlushFileBuffers(handle); // best-effort; a read-only volume may reject it
+            }
             send_ioctl(handle, FSCTL_LOCK_VOLUME)?;
             send_ioctl(handle, FSCTL_DISMOUNT_VOLUME)?;
             send_ioctl(handle, IOCTL_STORAGE_EJECT_MEDIA)?;

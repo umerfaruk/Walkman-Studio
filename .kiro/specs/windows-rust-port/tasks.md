@@ -278,21 +278,69 @@ verification.
   walkman-platform` (10 tests, incl. `fs_time`), both `clippy`-clean. `cargo test --workspace`
   passes in full.
 
-- [ ] 9. Implement the Walkman engine and device detection services
-  - [~] 9.1 Port `device_detector.rs`: the Sony model catalog, supported/android checks, icon-key
+- [x] 9. Implement the Walkman engine and device detection services
+  - [x] 9.1 Port `device_detector.rs`: the Sony model catalog, supported/android checks, icon-key
         map, `inspect_volume` (capability XML parse, signatures, capacity-based WM1 M2 split),
         `detect_devices`, and write unit tests for model classification from fixture signatures.
     - _Requirements: 3.2, 3.3, 3.4_
-  - [~] 9.2 Port `usb_detector.rs` on top of `UsbEnumerator` to publish connected Walkmans.
+    - Progress: `services/src/device_detector.rs` has the hardcoded catalog (NW-A50/A100/A300,
+      ZX100/ZX300/ZX500/ZX700, WM1A/WM1Z/WM1AM2/WM1ZM2 — split into separate entries where PIDs
+      differ, so `resolve_model` can tell e.g. WM1AM2 from WM1ZM2 by PID alone — and the
+      WS/E/S/B series), `resolve_model` (PID-first, then a model-token substring match, with
+      capacity-nearest-match to resolve same-PID/capacity-differentiated members like the A50
+      series' A55/A56/A57), `is_supported_model`/`is_android_model`/`icon_key`, and
+      `inspect_volume` (signature files/folders from R3.2, Internal-vs-MicroSD via the
+      `Sony_Card.IND` marker, and a best-effort `default-capability.xml` scan for an
+      `NW-XXXX`-shaped token — this repo has no sample of that file's real schema, so it scans
+      for the token textually rather than parsing specific tags, documented in the module doc).
+      `detect_devices` (the "group internal+microsd into devices" grouping) ended up in
+      `walkman_engine.rs` instead, since it needs `VolumeProvider` for free-space/capacity and
+      building it there avoided a `device_detector` → `walkman_engine` → `device_detector`
+      dependency cycle; see that module's notes for the documented grouping-heuristic
+      limitations. 11 tests, including one real bug caught and fixed during development
+      (WM1AM2/WM1ZM2 were initially one shared catalog entry, so PID alone couldn't tell them
+      apart as the task asks — split into two entries).
+  - [x] 9.2 Port `usb_detector.rs` on top of `UsbEnumerator` to publish connected Walkmans.
     - _Requirements: 3.1_
-  - [~] 9.3 Port `walkman_engine.rs`: drive detection (VolumeProvider + signatures + free-space),
+    - Progress: `services/src/usb_detector.rs`. `scan_connected_walkmans` filters
+      `UsbEnumerator::scan()` to Sony's vendor id and resolves each device against the catalog;
+      `scan_unsupported` separately surfaces Sony-vendor-id devices that didn't resolve (R3.4:
+      "unsupported model" should be recorded and surfaced, not silently dropped). Tested against
+      `walkman_platform::fake::FakeUsbEnumerator`, not real hardware. 3 tests.
+  - [x] 9.3 Port `walkman_engine.rs`: drive detection (VolumeProvider + signatures + free-space),
         custom-storage folder (plain stored path), `target_track_url`, playlist read/write/rename
         (CRLF `.m3u8`), byte/duration formatters, and the companion `.lrc` writer; write unit tests
         for the `.m3u8` CRLF/relative-path output and the `.lrc` formatter.
     - _Requirements: 3.2, 3.7, 11.1, 15.4_
-  - [~] 9.4 Implement Clean & Eject (Windows + residual macOS junk removal, flush, eject via
+    - Progress: `services/src/walkman_engine.rs`. `detect_drives` builds `WalkmanDrive`s from
+      every authentic volume; `detect_devices` additionally groups them into `WalkmanDevice`s
+      (see 9.1's note on where this landed and its documented grouping limits).
+      `CustomStorageFolder` is a plain `PathBuf` wrapper (no security-scoped bookmark needed on
+      Windows, per design.md). `target_track_fs_path` joins `domain::sanitize`'s
+      already-sanitized relative path onto a music root with native separators.
+      `write_playlist`/`read_playlist`/`rename_playlist`/`delete_playlist` round-trip a
+      `#EXTM3U`/`#EXTINF`/CRLF `.m3u8` exactly (R11.1). `write_lrc` writes a companion `.lrc`
+      with strict `[mm:ss.xx]` timestamps sorted chronologically, an optional `[offset:±ms]`
+      header, CRLF, no BOM, and never touches the audio file itself (so its timestamps are
+      preserved by construction, not by restoring them after the fact); `synthesize_lrc_lines`
+      spaces out plain-text lines evenly across a duration when no sync points exist. `has_cfw`
+      detection and the custom-firmware marker names are a documented best-effort placeholder —
+      no authoritative list of Sony Walkman CFW install artifacts was available to source this
+      from. 13 tests.
+  - [x] 9.4 Implement Clean & Eject (Windows + residual macOS junk removal, flush, eject via
         `Ejector` with watchdog).
     - _Requirements: 16.1, 16.2_
+    - Progress: `services/src/clean_eject.rs`'s `clean_junk` recursively removes the per-
+      directory junk files R16.1 lists (`.DS_Store`, `Thumbs.db`, `desktop.ini`, `._*` sidecars)
+      and the top-level-only junk folders (`$RECYCLE.BIN`, `System Volume Information`,
+      `.Spotlight-V100`, `.Trashes`, `.fseventsd`), with every removal best-effort (a
+      permission-denied folder, e.g. `System Volume Information` without elevation, is skipped,
+      not an error). `clean_and_eject` runs that pass then calls `Ejector::eject` (already
+      watchdog-bounded, task 6.5). Added a `FlushFileBuffers` call to
+      `platform::windows::WindowsEjector::do_eject` (right after opening the volume handle,
+      before locking) to actually satisfy R16.2's "flush writes and then safely eject", which
+      task 6.5 had not done. 5 tests for `clean_eject`; `walkman-platform`'s existing eject tests
+      (`fake::tests::fake_ejector_*`) still pass unchanged.
 
 - [ ] 10. Implement transcoding and the transfer queue
   - [~] 10.1 Port `transcode.rs` preset→ffmpeg-args table verbatim (all presets + loudnorm + `-vn`)
@@ -489,19 +537,22 @@ verification.
 - Golden-byte and parity fixtures (tasks 8.5, 19.4) should be captured from the macOS app output and
   committed under `crates/*/tests/fixtures/`.
 - No audio stream is re-encoded during metadata-only operations; this is asserted in task 19.3.
-- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, and 8 complete; 5.2, 5.3, 6.1, 6.2, 6.4,
-  6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, and 8.5 complete; 3.1, 5.1, 5.4, 6.3, and 6.7
-  partially done (see per-task Progress notes). The dev host switched to the MSVC toolchain
-  (Visual Studio Build Tools installed, `rustup default stable-x86_64-pc-windows-msvc`), which
-  resolved the `windows-gnu` dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue
-  together (both `rusqlite`'s bundled SQLite and task 7/8's own needs depend on a working C
-  compiler). `cargo test --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0
-  failed). 6.3 and 6.7 stay `[~]` because they're intentionally partial (poll-only device events;
-  no artwork/command callbacks yet); task 8.5 is checked off despite a known, documented gap
-  (no real macOS-app-captured golden-byte fixtures exist in this repo, so the writers are
+- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, and 9 complete; 5.2, 5.3, 6.1, 6.2,
+  6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3, and 9.4 complete; 3.1,
+  5.1, 5.4, 6.3, and 6.7 partially done (see per-task Progress notes). The dev host switched to
+  the MSVC toolchain (Visual Studio Build Tools installed,
+  `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
+  dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
+  bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo test
+  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 248 tests). 6.3 and
+  6.7 stay `[~]` because they're intentionally partial (poll-only device events; no
+  artwork/command callbacks yet); task 8.5 is checked off despite a known, documented gap (no
+  real macOS-app-captured golden-byte fixtures exist in this repo, so the writers are
   round-trip-tested, not byte-diffed against the Swift app's own output) rather than marked
-  unverified, since everything that *can* be tested without those fixtures is. New workspace
-  dependencies: task 7 added `walkdir` (recursive scan), `lofty` (tag reading only — task 8's
-  native readers/writers are separate), `uuid` (folder ids), `tempfile` (test fixtures); task 8
-  added no new dependencies (it builds on `image`, already present, plus the new native
-  `flac_tags`/`id3v2`/`smfm` modules and a small `platform::set_file_times` addition).
+  unverified, since everything that *can* be tested without those fixtures is; task 9's
+  `detect_devices` device/drive-grouping heuristic has similarly documented limitations (see its
+  own Progress notes) rather than being unverified. New workspace dependencies: task 7 added
+  `walkdir` (recursive scan), `lofty` (tag reading only — task 8's native readers/writers are
+  separate), `uuid` (folder ids), `tempfile` (test fixtures); task 8 added none; task 9 added
+  none (it builds on `walkman-platform`'s existing `VolumeProvider`/`UsbEnumerator`/`Ejector`
+  traits and fakes, task 6).
