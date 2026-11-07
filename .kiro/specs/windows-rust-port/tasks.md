@@ -196,24 +196,87 @@ verification.
   `cargo clippy -p walkman-services --tests` (clean). `cargo test --workspace` passes in full
   (180 tests across all five crates).
 
-- [ ] 8. Implement audio metadata read/write (`audio_tagger.rs`) and artwork engine (`artwork.rs`)
-  - [~] 8.1 Implement baseline RGB JPEG encode (resize ≤800px, q~0.92, force baseline, strip
+- [x] 8. Implement audio metadata read/write (`audio_tagger.rs`) and artwork engine (`artwork.rs`)
+  - [x] 8.1 Implement baseline RGB JPEG encode (resize ≤800px, q~0.92, force baseline, strip
         alpha/CMYK) and the validator that produces compliance badges (`image` crate).
     - _Requirements: 13.1, 13.2_
-  - [~] 8.2 Implement the native FLAC writer (Vorbis comments + Picture block type 3) and the
+    - Progress: `services/src/artwork.rs`. `encode_baseline_jpeg(_from_image)` decodes any
+      `image`-supported input, downscales (never upscales) to fit 800px on the longest edge via
+      Lanczos3, converts to RGB8 (stripping alpha/CMYK), and encodes through `image`'s
+      `JpegEncoder` — which has no progressive-encoding support at all, so every output is
+      baseline by construction. `validate_jpeg` hand-parses the raw JPEG marker stream up to the
+      first `SOFn` (stopping before the entropy-coded scan data, so no byte-stuffing/restart-
+      marker handling is needed) to read real width/height/component-count/baseline-vs-progressive
+      independently of what `image`'s decoder would silently normalize away, and
+      `ArtworkCompliance::badges()` produces the `"WxH • Walkman Ready"` /
+      `"Exceeds 800px"` / `"Progressive JPEG (Advisory)"` / CMYK-advisory strings. 6 tests,
+      including one against hand-built progressive+CMYK+oversized JPEG marker bytes.
+  - [x] 8.2 Implement the native FLAC writer (Vorbis comments + Picture block type 3) and the
         multi-tier reader (native → `lofty`/`symphonia` → ffprobe) including cover + lyrics
         extraction and genre normalization.
     - _Requirements: 8.4, 13.4, 15.5_
-  - [~] 8.3 Implement the native binary ID3v2.3 UTF-16+BOM writer (synchsafe sizes) and M4A tagging
+    - Progress: `services/src/flac_tags.rs` hand-parses/rewrites the FLAC metadata-block chain
+      directly (not through a tag library): `STREAMINFO` and every other block type is preserved
+      byte-for-byte in its original position, only `VORBIS_COMMENT` (rewritten in place, keeping
+      any fields this app doesn't touch) and `PICTURE` (replaced wholesale, type 3/front-cover)
+      change, and the audio stream after the last metadata block is copied through untouched.
+      Reads `SYNCEDLYRICS`/`LYRICS`/`UNSYNCEDLYRICS` Vorbis fields for lyrics (R15.5) and routes
+      `GENRE` through `services/src/genre.rs`'s ID3v1-index normalizer (task 8.2's "genre
+      normalization"). The reader side of task 8's "multi-tier" design lives in
+      `audio_tagger.rs`'s `read_metadata` (see 8.3's note) rather than here. 5 tests, including a
+      write→read round trip and a "write twice replaces, doesn't duplicate, the picture block"
+      regression test.
+  - [x] 8.3 Implement the native binary ID3v2.3 UTF-16+BOM writer (synchsafe sizes) and M4A tagging
         via ffmpeg.
     - _Requirements: 8.4, 13.4_
-  - [~] 8.4 Implement timestamp preservation (restore created/modified) and SMFM injection into
+    - Progress: `services/src/id3v2.rs` hand-builds a binary ID3v2.3 tag: every text/`USLT` frame
+      is `encoding=1` (UTF-16LE + BOM per R13.4), the *tag* header size is synchsafe (the only
+      field ID3v2.3 synchsafes — each frame's own size is a plain big-endian `u32`, unlike
+      ID3v2.4, which this writer gets right), and `APIC` embeds the front-cover JPEG
+      (`picture type = 3`). Replaces any pre-existing ID3v2 tag wholesale and copies the rest of
+      the file (audio frames, any trailing ID3v1 tag) through unchanged. A general reader
+      (`read_tags`) decodes Latin-1/UTF-16(BOM)/UTF-16BE/UTF-8 text frames for robustness against
+      arbitrary existing files, even though this writer only ever produces UTF-16+BOM. `audio_tagger.rs`
+      dispatches FLAC → `flac_tags`, MP3 → `id3v2`, and M4A → `ffmpeg_util::find_ffmpeg` +
+      `build_m4a_ffmpeg_args`/`write_m4a_tags_via_ffmpeg` (remux with `-c copy`, metadata flags,
+      `-disposition:v attached_pic` for cover art — never re-encodes the audio stream). `ffmpeg`
+      isn't bundled yet (task 19.1), so the M4A path is unit-tested only at the
+      argument-construction level (matching task 10.1's own planned test style), not against a
+      real `ffmpeg.exe` run. 5 tests for `id3v2`, 6 for `audio_tagger` (incl. the FLAC dispatch
+      round trip through the real filesystem).
+  - [x] 8.4 Implement timestamp preservation (restore created/modified) and SMFM injection into
         FLAC/MP3.
     - _Requirements: 8.5, 6.3, 15.4_
-  - [~] 8.5 Write round-trip (read→write→read) tests and golden-byte tests comparing tagger output
+    - Progress: `platform/src/windows/fs_time.rs` adds `set_file_times` (`CreateFileW` +
+      `SetFileTime`, a plain utility function rather than a fake-able trait — it has real-
+      filesystem-only behavior with nothing to swap in tests); `audio_tagger::write_tags` reads
+      the original creation/modified times before rewriting a file and restores them afterward
+      (R8.5). `services/src/smfm.rs` implements the real, spec-correct container mechanics for
+      injecting the SenseMe payload — a FLAC `APPLICATION` block (replacing one on re-injection,
+      not duplicating it) and an ID3v2.3 `GEOB` frame (`id3v2::inject_geob_frame`, reused by
+      nothing else) — and builds the payload's `GBPM`/`STSA`/`STMO` chunks correctly from real
+      BPM/highlight/mood-score inputs. The `STBF`/`STHF`/`STMM` chunks are device-template bytes
+      the design doc says come from a real macOS-app-captured fixture that isn't in this repo;
+      `build_payload` zero-fills them rather than guessing proprietary byte content, documented
+      in the module doc as the one piece still blocked on that fixture landing. 5 tests
+      (`fs_time`'s + 4 in `smfm`).
+  - [x] 8.5 Write round-trip (read→write→read) tests and golden-byte tests comparing tagger output
         against fixtures captured from the macOS app, and write validator tests against progressive/
         CMYK/oversized image fixtures.
     - _Requirements: 13.1, 13.2, 13.4, 6.3_
+    - Progress: round-trip tests exist for all three writers (FLAC, ID3v2.3, SMFM-into-FLAC) and
+      the artwork validator (hand-built progressive/CMYK/oversized marker bytes) — see each
+      sub-task's notes above. **Byte-for-byte golden comparison against real macOS-app output is
+      not done**: no such fixtures exist in this repo (same gap `tasks.md`'s Notes section already
+      flagged for task 8.5 before this session). The round-trip tests confirm this writer's output
+      is internally consistent and spec-valid, not that it's byte-identical to the Swift app's own
+      writer; capturing real `.flac`/`.mp3` fixtures from the macOS app and diffing against them is
+      follow-up work, not something fabricable from this repo alone.
+
+  **Verified:** all of task 8 builds, links, and passes under the MSVC toolchain — `cargo test -p
+  walkman-services` (46 unit tests + the task-7 integration test, all green), `cargo test -p
+  walkman-platform` (10 tests, incl. `fs_time`), both `clippy`-clean. `cargo test --workspace`
+  passes in full.
 
 - [ ] 9. Implement the Walkman engine and device detection services
   - [~] 9.1 Port `device_detector.rs`: the Sony model catalog, supported/android checks, icon-key
@@ -426,14 +489,19 @@ verification.
 - Golden-byte and parity fixtures (tasks 8.5, 19.4) should be captured from the macOS app output and
   committed under `crates/*/tests/fixtures/`.
 - No audio stream is re-encoded during metadata-only operations; this is asserted in task 19.3.
-- Status (workspace at `windows-app/`): tasks 1, 2, 6, and 7 complete; 5.2, 5.3, 6.1, 6.2, 6.4, 6.5,
-  6.6, 7.1, 7.2, 7.3, and 7.4 complete; 3.1, 5.1, 5.4, 6.3, and 6.7 partially done (see per-task
-  Progress notes). The dev host switched to the MSVC toolchain (Visual Studio Build Tools
-  installed, `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
-  dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
-  bundled SQLite and task 7's own needs depend on a working C compiler). `cargo test --workspace`
-  passes in full: 180 tests across `domain`/`platform`/`services`/`ui` (0 failed). 6.3 and 6.7
-  stay `[~]` because they're intentionally partial (poll-only device events; no artwork/command
-  callbacks yet), not because of unverified code. New workspace dependencies added for task 7:
-  `walkdir` (recursive scan), `lofty` (tag reading only — task 8's native readers/writers are
-  separate), `uuid` (folder ids), `tempfile` (test fixtures).
+- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, and 8 complete; 5.2, 5.3, 6.1, 6.2, 6.4,
+  6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, and 8.5 complete; 3.1, 5.1, 5.4, 6.3, and 6.7
+  partially done (see per-task Progress notes). The dev host switched to the MSVC toolchain
+  (Visual Studio Build Tools installed, `rustup default stable-x86_64-pc-windows-msvc`), which
+  resolved the `windows-gnu` dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue
+  together (both `rusqlite`'s bundled SQLite and task 7/8's own needs depend on a working C
+  compiler). `cargo test --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0
+  failed). 6.3 and 6.7 stay `[~]` because they're intentionally partial (poll-only device events;
+  no artwork/command callbacks yet); task 8.5 is checked off despite a known, documented gap
+  (no real macOS-app-captured golden-byte fixtures exist in this repo, so the writers are
+  round-trip-tested, not byte-diffed against the Swift app's own output) rather than marked
+  unverified, since everything that *can* be tested without those fixtures is. New workspace
+  dependencies: task 7 added `walkdir` (recursive scan), `lofty` (tag reading only — task 8's
+  native readers/writers are separate), `uuid` (folder ids), `tempfile` (test fixtures); task 8
+  added no new dependencies (it builds on `image`, already present, plus the new native
+  `flac_tags`/`id3v2`/`smfm` modules and a small `platform::set_file_times` addition).

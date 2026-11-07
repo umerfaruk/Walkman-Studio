@@ -17,7 +17,13 @@ pub mod local_library; // task 7.2/7.3
 // pub mod usb_detector;      // task 9.2
 // pub mod walkman_engine;    // task 9.3 / 9.4
 // pub mod audio_tagger;      // task 8
-// pub mod artwork;           // task 8.1
+pub mod artwork; // task 8.1
+pub mod audio_tagger; // task 8.2/8.3/8.4 orchestrator
+pub mod ffmpeg_util; // bundled-first ffmpeg/ffprobe discovery (tasks 8.3, 10.1)
+pub mod flac_tags; // task 8.2 (native FLAC reader/writer)
+pub mod genre; // task 8.2 (genre normalization)
+pub mod id3v2; // task 8.3 (native ID3v2.3 reader/writer)
+pub mod smfm; // task 8.4 (SMFM payload injection into FLAC/MP3)
 // pub mod transcode;         // task 10.1
 // pub mod transfer_queue;    // task 10.2
 // pub mod duplicate_finder;  // task 11.1
