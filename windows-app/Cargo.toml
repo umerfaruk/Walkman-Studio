@@ -51,6 +51,9 @@ aes-gcm = "0.10"
 # Waveform PCM decode (task 12.1); the ffmpeg fallback path shells out like the rest of the
 # ffmpeg_util-based code, no extra dependency needed for that half.
 symphonia = { version = "0.5", default-features = false, features = ["wav", "flac", "mp3", "pcm"] }
+# Playback engine (task 13): rodio's own `symphonia-*` feature set, not this workspace's direct
+# `symphonia` dependency above — covers FLAC/MP3/WAV/AAC/ALAC/M4A per R7.1.
+rodio = { version = "0.20", default-features = false, features = ["symphonia-all", "symphonia-alac"] }
 
 [profile.release]
 opt-level = 3

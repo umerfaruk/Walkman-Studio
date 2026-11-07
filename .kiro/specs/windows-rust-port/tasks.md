@@ -516,10 +516,24 @@ verification.
   --workspace --tests` clean. `cargo test --workspace` passes in full (318 tests). New workspace
   dependency: `symphonia` (waveform PCM decode, task 12.1 only).
 
-- [~] 13. Implement audio playback (`player.rs`)
+- [x] 13. Implement audio playback (`player.rs`)
   - Implement the playback engine (`rodio`/Media Foundation) with play/pause/seek/next/prev, a queue
     + advance hook, progress reporting, and SMTC integration via `MediaControls`.
   - _Requirements: 7.1, 7.4, 7.5_
+  - Progress: `services/src/player.rs`, on `rodio` (new workspace dependency, `symphonia-all` +
+    `symphonia-alac` features — covers FLAC/MP3/WAV/AAC/ALAC/M4A per R7.1). `Player` owns the
+    output stream/sink behind a `Mutex`; `play_index`/`play`/`pause`/`toggle_play_pause`/`seek`/
+    `next`/`previous` cover the transport, `status()` reports position/duration/state for R7.1's
+    progress scrubber, and `set_now_playing`/`set_playback_state` push to the `MediaControls`
+    trait (task 6.7's `WindowsMediaControls`) on every load/play/pause for R7.4's SMTC
+    integration. There's no background "watcher" thread for detecting a finished track;
+    `Player::poll()` is a plain method the UI calls once per frame (the same
+    channel/poll-driven threading model design.md uses elsewhere in this crate) that detects the
+    sink going empty, runs the R7.5 advance hook, and auto-advances the queue. 5 tests —
+    genuinely exercised against this dev host's real default audio output device via `rodio`/
+    `cpal`/WASAPI (not mocked), including actually waiting for a short real WAV clip to finish
+    playing and confirming `poll()` auto-advances; skipped gracefully (not failed) if a host has
+    no audio output device, since that's an environment property this code doesn't control.
 
 - [ ] 14. Build the Local Library and Walkman library views
   - [~] 14.1 Implement `LocalLibraryView`: display modes (Songs/Albums/Artists/Recently Added/
@@ -674,15 +688,16 @@ verification.
 - Golden-byte and parity fixtures (tasks 8.5, 19.4) should be captured from the macOS app output and
   committed under `crates/*/tests/fixtures/`.
 - No audio stream is re-encoded during metadata-only operations; this is asserted in task 19.3.
-- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, 11, and 12 complete; 5.2, 5.3,
-  6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3, 9.4, 10.1,
-  10.2, 10.3, 11.1, 11.2, 11.3, 12.1, 12.2, and 12.3 complete; 3.1, 5.1, 5.4, 6.3, and 6.7
+- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, 11, 12, and 13 complete; 5.2,
+  5.3, 6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3, 9.4,
+  10.1, 10.2, 10.3, 11.1, 11.2, 11.3, 12.1, 12.2, and 12.3 complete; 3.1, 5.1, 5.4, 6.3, and 6.7
   partially done (see per-task Progress notes). The dev host switched to the MSVC toolchain
   (Visual Studio Build Tools installed, `rustup default stable-x86_64-pc-windows-msvc`), which
   resolved the `windows-gnu` dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue
   together (both `rusqlite`'s bundled SQLite and task 7/8's own needs depend on a working C
   compiler). `cargo test --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0
-  failed, 318 tests). 6.3 and 6.7 stay `[~]` because they're intentionally partial (poll-only
+  failed, 323 tests) — including task 13's player tests against this host's *real* audio output
+  device (not mocked). 6.3 and 6.7 stay `[~]` because they're intentionally partial (poll-only
   device events; no artwork/command callbacks yet); task 8.5 is checked off despite a known,
   documented gap (no real macOS-app-captured golden-byte fixtures exist in this repo, so the
   writers are round-trip-tested, not byte-diffed against the Swift app's own output) rather than
@@ -695,4 +710,5 @@ verification.
   New workspace dependencies: task 7 added `walkdir` (recursive scan), `lofty` (tag reading only
   — task 8's native readers/writers are separate), `uuid` (folder ids), `tempfile` (test
   fixtures); task 11 added `pbkdf2`, `hmac`, `sha2`, `aes-gcm` (encryption); task 12 added
-  `symphonia` (waveform PCM decode); tasks 8, 9, and 10 added none.
+  `symphonia` (waveform PCM decode); task 13 added `rodio` (playback engine); tasks 8, 9, and 10
+  added none.

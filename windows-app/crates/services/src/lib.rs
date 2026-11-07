@@ -24,12 +24,12 @@ pub mod library_scanner; // task 7.1
 pub mod local_library; // task 7.2/7.3
 pub mod lyrics; // task 12.2
 pub mod online_metadata; // task 12.3
+pub mod player; // task 13
 pub mod smfm; // task 8.4 (SMFM payload injection into FLAC/MP3)
 pub mod transcode; // task 10.1
 pub mod transfer_queue; // task 10.2
 pub mod trim_cut; // task 12.1
 pub mod usb_detector; // task 9.2
 pub mod walkman_engine; // task 9.3
-// pub mod player; // task 13
 
 pub use error::{AppError, Result};
