@@ -48,6 +48,9 @@ pbkdf2 = "0.12"
 hmac = "0.12"
 sha2 = "0.10"
 aes-gcm = "0.10"
+# Waveform PCM decode (task 12.1); the ffmpeg fallback path shells out like the rest of the
+# ffmpeg_util-based code, no extra dependency needed for that half.
+symphonia = { version = "0.5", default-features = false, features = ["wav", "flac", "mp3", "pcm"] }
 
 [profile.release]
 opt-level = 3

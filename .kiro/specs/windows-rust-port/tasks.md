@@ -456,16 +456,65 @@ verification.
   (288 tests). New workspace dependencies: `pbkdf2`, `hmac`, `sha2`, `aes-gcm` (encryption, task
   11.2 only — `hmac` is pulled in by `pbkdf2`/`sha2` but not used directly).
 
-- [ ] 12. Implement trim/cut, lyrics, online metadata, and art caches
-  - [~] 12.1 Port `trim_cut.rs`: waveform generation (symphonia + ffmpeg fallback) and the ffmpeg
+- [x] 12. Implement trim/cut, lyrics, online metadata, and art caches
+  - [x] 12.1 Port `trim_cut.rs`: waveform generation (symphonia + ffmpeg fallback) and the ffmpeg
         filtergraph for trim/cut/channel ops/fades/gain, preserving tags+artwork afterward.
     - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
-  - [~] 12.2 Port `lyrics.rs`: LRCLIB (get/search, duration-matched, same user-agent) + Lyrics.ovh
+    - Progress: `services/src/trim_cut.rs`. `generate_waveform` decodes real PCM via `symphonia`
+      (primary — added as a new workspace dependency with the `wav`/`flac`/`mp3`/`pcm` features;
+      verified against a hand-built real WAV fixture, not a mock), falling back to shelling out
+      to `ffmpeg` (raw `f32le` PCM on stdout) if that fails; both paths downsample to peak
+      amplitudes via a shared `downsample_to_peaks`. `build_ffmpeg_args` always builds a single
+      `-filter_complex` graph (even for a plain trim) so `Trim`/`Cut`, the six `ChannelMode`
+      options (R14.4), fades, and gain compose into one pass with a final label that's always
+      `[out]` regardless of which optional stages ran; `Cut` uses `asplit`+`atrim`+`concat`
+      since removing a middle segment isn't expressible as a single `atrim`. `apply_trim_cut`
+      reads the source's tags/artwork *before* running `ffmpeg` and re-applies them to the
+      processed output afterward via `audio_tagger` (R14.5 — `ffmpeg`'s filter graph re-encodes,
+      which drops them). 7 tests. The actual `ffmpeg` process invocation (`apply_trim_cut`, the
+      `ffmpeg`-fallback waveform path) isn't exercised against a real binary — ffmpeg isn't
+      bundled yet (task 19.1), same documented gap as every other `ffmpeg`-dependent path in
+      this port.
+  - [x] 12.2 Port `lyrics.rs`: LRCLIB (get/search, duration-matched, same user-agent) + Lyrics.ovh
         fallback, concurrent workers, and synced/plain/skipped/not-found accounting.
     - _Requirements: 15.1, 15.3_
-  - [~] 12.3 Port `online_metadata.rs` (iTunes + Deezer) and `artist_art_cache.rs` /
+    - Progress: `services/src/lyrics.rs`. URL-building (`build_lrclib_get_url`/
+      `build_lrclib_search_url`/`build_lyrics_ovh_url`) and JSON-parsing
+      (`parse_lrclib_get_response`/`parse_lrclib_search_response`/`parse_lyrics_ovh_response`)
+      are pure, fixture-tested functions; `fetch_one` tries LRCLIB's `/get` (exact match) then
+      falls back to `/search` (duration-matched against the closest result) then Lyrics.ovh, all
+      through a single shared `reqwest::Client` carrying one `USER_AGENT` constant used by both
+      APIs (R15.1). `fetch_batch_async` runs every request concurrently (a `tokio::sync::
+      Semaphore` bounding concurrency, `tokio::task::JoinSet` for the actual tasks) on a
+      background thread with its own Tokio runtime, publishing a progress update with each
+      outcome over a channel — the one network-dependent path in this task that *is* exercised
+      end-to-end in a test, since the "already has lyrics" case is a real `Skipped` outcome that
+      never touches the network, which verifies the runtime/semaphore/channel plumbing itself
+      without needing internet access. `tally` computes R15.3's four metric-pill counts. 10
+      tests. The actual LRCLIB/Lyrics.ovh HTTP round trip isn't exercised against the live APIs —
+      no internet access to verify against in this session, and no mock-HTTP dependency was
+      added for it (documented gap, same shape as the `ffmpeg`-dependent gaps elsewhere).
+  - [x] 12.3 Port `online_metadata.rs` (iTunes + Deezer) and `artist_art_cache.rs` /
         `cover_art_cache.rs` (disk + memory caches).
     - _Requirements: 17.1, 17.2, 17.3, 5.4_
+    - Progress: `services/src/online_metadata.rs` mirrors `lyrics.rs`'s split (pure/tested
+      URL-building + JSON-parsing; `fetch_metadata_candidates`/`fetch_artist_image_url`/
+      `download_bytes` are real but unexercised network calls, same documented gap) for the
+      iTunes Search API and Deezer's track and artist search endpoints, upgrading iTunes'
+      `artworkUrl100` to `600x600` since that API has no explicit size parameter. Either source
+      failing contributes no candidates rather than erroring the whole lookup (R17.3).
+      `services/src/cover_art_cache.rs` implements the shared two-tier `ArtCache` (memory +
+      disk, disk filenames are a hash of the cache key so arbitrarily-shaped keys like file
+      paths or `"artist|album"` pairs never collide or need escaping) that both it (keyed by
+      track path) and `services/src/artist_art_cache.rs` (keyed by `"artist|album"`, R5.4) use —
+      one generic cache implementation behind the two source files design.md names, rather than
+      duplicating the cache logic. 13 tests.
+
+  **Verified:** all of task 12 builds, links, and passes under the MSVC toolchain —
+  `cargo test -p walkman-services` (30 new unit tests: 7 `trim_cut` + 10 `lyrics` + 4
+  `cover_art_cache` + 2 `artist_art_cache` + 7 `online_metadata`, all green), `cargo clippy
+  --workspace --tests` clean. `cargo test --workspace` passes in full (318 tests). New workspace
+  dependency: `symphonia` (waveform PCM decode, task 12.1 only).
 
 - [~] 13. Implement audio playback (`player.rs`)
   - Implement the playback engine (`rodio`/Media Foundation) with play/pause/seek/next/prev, a queue
@@ -625,23 +674,25 @@ verification.
 - Golden-byte and parity fixtures (tasks 8.5, 19.4) should be captured from the macOS app output and
   committed under `crates/*/tests/fixtures/`.
 - No audio stream is re-encoded during metadata-only operations; this is asserted in task 19.3.
-- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, and 11 complete; 5.2, 5.3,
+- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, 11, and 12 complete; 5.2, 5.3,
   6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3, 9.4, 10.1,
-  10.2, 10.3, 11.1, 11.2, and 11.3 complete; 3.1, 5.1, 5.4, 6.3, and 6.7 partially done (see
-  per-task Progress notes). The dev host switched to the MSVC toolchain (Visual Studio Build
-  Tools installed, `rustup default stable-x86_64-pc-windows-msvc`), which resolved the
-  `windows-gnu` dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both
-  `rusqlite`'s bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo
-  test --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 288 tests).
-  6.3 and 6.7 stay `[~]` because they're intentionally partial (poll-only device events; no
-  artwork/command callbacks yet); task 8.5 is checked off despite a known, documented gap (no
-  real macOS-app-captured golden-byte fixtures exist in this repo, so the writers are
-  round-trip-tested, not byte-diffed against the Swift app's own output) rather than marked
-  unverified, since everything that *can* be tested without those fixtures is; task 9's
+  10.2, 10.3, 11.1, 11.2, 11.3, 12.1, 12.2, and 12.3 complete; 3.1, 5.1, 5.4, 6.3, and 6.7
+  partially done (see per-task Progress notes). The dev host switched to the MSVC toolchain
+  (Visual Studio Build Tools installed, `rustup default stable-x86_64-pc-windows-msvc`), which
+  resolved the `windows-gnu` dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue
+  together (both `rusqlite`'s bundled SQLite and task 7/8's own needs depend on a working C
+  compiler). `cargo test --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0
+  failed, 318 tests). 6.3 and 6.7 stay `[~]` because they're intentionally partial (poll-only
+  device events; no artwork/command callbacks yet); task 8.5 is checked off despite a known,
+  documented gap (no real macOS-app-captured golden-byte fixtures exist in this repo, so the
+  writers are round-trip-tested, not byte-diffed against the Swift app's own output) rather than
+  marked unverified, since everything that *can* be tested without those fixtures is; task 9's
   `detect_devices` device/drive-grouping heuristic, task 10.1's un-exercised-against-a-real-
-  `ffmpeg.exe` transcode path, and task 11.2's per-file (not `aes-gcm`'s chunked `stream`
-  construction) interpretation of "streamed" encryption have similarly documented limitations
-  (see their own Progress notes) rather than being unverified. New workspace dependencies: task 7
-  added `walkdir` (recursive scan), `lofty` (tag reading only — task 8's native readers/writers
-  are separate), `uuid` (folder ids), `tempfile` (test fixtures); task 11 added `pbkdf2`, `hmac`,
-  `sha2`, `aes-gcm` (encryption); tasks 8, 9, and 10 added none.
+  `ffmpeg.exe` transcode path, task 11.2's per-file (not `aes-gcm`'s chunked `stream`
+  construction) interpretation of "streamed" encryption, and task 12's un-exercised-against-the-
+  live-network LRCLIB/Lyrics.ovh/iTunes/Deezer calls (and `trim_cut.rs`'s `ffmpeg` paths) have
+  similarly documented limitations (see their own Progress notes) rather than being unverified.
+  New workspace dependencies: task 7 added `walkdir` (recursive scan), `lofty` (tag reading only
+  — task 8's native readers/writers are separate), `uuid` (folder ids), `tempfile` (test
+  fixtures); task 11 added `pbkdf2`, `hmac`, `sha2`, `aes-gcm` (encryption); task 12 added
+  `symphonia` (waveform PCM decode); tasks 8, 9, and 10 added none.
