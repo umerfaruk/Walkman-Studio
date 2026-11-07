@@ -536,11 +536,37 @@ verification.
     no audio output device, since that's an environment property this code doesn't control.
 
 - [ ] 14. Build the Local Library and Walkman library views
-  - [~] 14.1 Implement `LocalLibraryView`: display modes (Songs/Albums/Artists/Recently Added/
+  - [x] 14.1 Implement `LocalLibraryView`: display modes (Songs/Albums/Artists/Recently Added/
         Folders), the 8 sort options, search, track/folder context menus (incl. Relocate Folder…),
         DirectTransfer sheet, format-warning + removal confirmation dialogs; Manage Local Folders
         sheet.
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
+    - Progress: `ui/src/views/local_library.rs` (new `ui/src/views/` module, per design.md's
+      intended one-module-per-section layout). All 5 display modes (R4.2) and 8 sort options
+      (R4.3, pure `sort_tracks`) are implemented; `filter_tracks` is the search bar's
+      case/whitespace-insensitive title/artist/album match (R4.4). Songs/Recently Added render a
+      sortable row list (plain hand-rolled rows via `theme::glass::liquid_glass`, not
+      `egui_extras::TableBuilder` — consistent with the rest of this crate's hand-rolled-widget
+      style so far); Albums/Artists render a simple grouped list (an `(album, artist)`/`artist`
+      count rollup) rather than AlbumsView's (task 14.4) cover grid, since R4.2 only asks this
+      view to offer those *display modes*, not duplicate 14.4's cover-grid presentation; Folders
+      lists the registered `LocalMusicFolder`s with a `Relocate Folder…`/Rescan context menu
+      (R4.4) and a `Remove Missing Folders and Tracks?` action. All four sheets exist (`Manage
+      Local Folders…`, `DirectTransfer`, the format-warning alert with its `Transfer & Convert
+      (All)` escalation, `Remove Folder from Local Library?`/`Remove Missing…`/`Audio File Not
+      Found` confirmations), built on a new `modal()` helper that reuses `now_playing.rs`'s
+      existing `Area`-based fullscreen-overlay pattern with `theme::glass::modal_glass_chassis`
+      for the panel. The view owns its own `LocalLibraryViewState` (display mode/sort/search/
+      selection/open sheet) and emits `LocalLibraryCommand`s into `state.commands` for whoever
+      drains them to act on — real `walkman_services::local_library` wiring (populating
+      `AppState::local_tracks`/`local_folders` and draining those commands) is task 18's job, not
+      this one's; `AppState` gained those two data fields plus `local_library_view` as plain,
+      currently-always-empty plumbing so `detail.rs`'s `NavTab::LocalLibrary` arm can call the
+      real view instead of the placeholder. 8 tests, including a headless-egui-frame render
+      across every (display mode × sheet) combination — same convention `detail.rs`'s own router
+      test already established — which also now exercises this view for real through
+      `detail_router_renders_in_headless_frame_for_every_tab` and
+      `shell_composes_in_headless_frame_for_representative_states`, both of which still pass.
   - [~] 14.2 Implement `LibraryView` (All Songs): sortable multi-column table + search + batch-lyrics
         button + per-row context menu; shared selection (Shift-range/Ctrl-toggle) and 88pt inset.
     - _Requirements: 5.1, 2.9_

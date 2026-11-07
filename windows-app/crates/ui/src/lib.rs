@@ -12,6 +12,7 @@ pub mod shell;
 pub mod sidebar;
 pub mod theme;
 pub mod toolbar;
+pub mod views;
 
 pub use nav::NavTab;
 pub use now_playing::{NowPlayingPlaceholder, PlayerRequests};

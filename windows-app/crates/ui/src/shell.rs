@@ -136,6 +136,23 @@ pub struct AppState {
     /// In-progress scrubber drag target (seconds). Set while dragging the scrubber; the
     /// player consumes it on release (task 13). `None` when not seeking.
     pub player_seek_target: Option<f64>,
+
+    // --- Local Library view data + state (task 14.1) ---
+    //
+    // The real `walkman_domain`/`walkman_services` types now exist (tasks 5/7), so this
+    // view's data is plumbed as plain fields rather than scalar stand-ins — but *nothing
+    // populates them yet*: real scanning/service wiring is task 18's job. `LocalLibraryView`
+    // itself emits `LocalLibraryCommand`s into `local_library_view.commands` for task 18 to
+    // drain and act on; nothing drains them here yet either.
+    /// Every track across every registered local folder. Empty until task 18 wires
+    /// `LocalLibrary::tracks()` in.
+    pub local_tracks: Vec<walkman_domain::models::Track>,
+    /// Every registered local folder. Empty until task 18 wires `LocalLibrary::list_folders()`
+    /// in.
+    pub local_folders: Vec<walkman_domain::models::LocalMusicFolder>,
+    /// `LocalLibraryView`'s own UI state (display mode, sort, search, selection, open sheet,
+    /// emitted commands).
+    pub local_library_view: crate::views::local_library::LocalLibraryViewState,
 }
 
 impl Default for AppState {
@@ -181,6 +198,10 @@ impl Default for AppState {
             is_fullscreen_player: false,
             player_requests: PlayerRequests::default(),
             player_seek_target: None,
+
+            local_tracks: Vec::new(),
+            local_folders: Vec::new(),
+            local_library_view: crate::views::local_library::LocalLibraryViewState::default(),
         }
     }
 }

@@ -4501,6 +4501,7 @@ dependencies = [
 name = "walkman-ui"
 version = "3.1.0"
 dependencies = [
+ "chrono",
  "eframe",
  "egui",
  "image",

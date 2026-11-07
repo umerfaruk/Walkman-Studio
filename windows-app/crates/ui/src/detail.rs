@@ -69,8 +69,15 @@ pub fn section_note(nav_tab: NavTab) -> &'static str {
 pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
     let tab = state.nav_tab;
     match tab {
+        NavTab::LocalLibrary => {
+            crate::views::local_library::render(
+                ui,
+                &state.local_tracks,
+                &state.local_folders,
+                &mut state.local_library_view,
+            );
+        }
         NavTab::Overview
-        | NavTab::LocalLibrary
         | NavTab::SenseMe
         | NavTab::Library
         | NavTab::RecentlyAdded
