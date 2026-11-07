@@ -68,8 +68,8 @@ verification.
         section.
     - _Requirements: 1.4_
 
-- [ ] 5. Port the domain models and pure logic (`domain/`)
-  - [ ] 5.1 Port `models.rs` (Track, AlbumItem, ArtistItem, WalkmanDrive, WalkmanDevice,
+- [x] 5. Port the domain models and pure logic (`domain/`)
+  - [x] 5.1 Port `models.rs` (Track, AlbumItem, ArtistItem, WalkmanDrive, WalkmanDevice,
         WalkmanDeviceInfo, Playlist, TransferItem/TransferStatus, TransferTargetMode, DriveType,
         LocalMusicFolder, AudioFileMetadata) with derived properties (is_hi_res, is_language_study,
         learning_dir, device totals).
@@ -81,212 +81,212 @@ verification.
   - [x] 5.3 Port `sanitize.rs` (`sanitize_walkman_text`, `sanitize_filename`, `target_track_url`) and
         write unit tests for non-BMP stripping, illegal chars, `[Explicit]` markers, and path layout.
     - _Requirements: 9.4, 13.1_
-  - [ ] 5.4 Port `senseme.rs` 12-Tone math + 14-channel classification (thresholds, time-of-day
+  - [x] 5.4 Port `senseme.rs` 12-Tone math + 14-channel classification (thresholds, time-of-day
         guards), define the SMFM 3,270-byte payload layout, and write unit tests for channel
         classification.
     - _Requirements: 6.1, 6.2_
     - Progress: `SenseMeChannel` catalog (14 channels, order/labels), `SenseMeInfo`, and the `SMFM_PAYLOAD_LEN` (3270) constant done in `domain/senseme.rs` (with tests). Remaining: the BPM/valence/arousal/mood extraction math and the classification thresholds + tests.
 
 - [ ] 6. Define the platform abstraction and Windows implementations (`platform/`)
-  - [ ] 6.1 Define the traits `VolumeProvider`, `DeviceEvents`, `UsbEnumerator`, `Ejector`,
+  - [~] 6.1 Define the traits `VolumeProvider`, `DeviceEvents`, `UsbEnumerator`, `Ejector`,
         `FileDialogs`, and `MediaControls`, plus a no-op/fake implementation for tests.
     - _Requirements: 3.1, 7.4, 12.6, 16.2_
     - Progress: all six traits + shared types (`model.rs`) defined in `platform/`. Remaining: the no-op/fake implementation used by tests.
-  - [ ] 6.2 Implement `VolumeProvider` (GetLogicalDrives/GetDriveTypeW/GetVolumeInformationW) and
+  - [~] 6.2 Implement `VolumeProvider` (GetLogicalDrives/GetDriveTypeW/GetVolumeInformationW) and
         free-space (GetDiskFreeSpaceExW).
     - _Requirements: 3.2, 12.6, 18.1_
-  - [ ] 6.3 Implement `DeviceEvents` via WM_DEVICECHANGE/RegisterDeviceNotification plus a periodic
+  - [~] 6.3 Implement `DeviceEvents` via WM_DEVICECHANGE/RegisterDeviceNotification plus a periodic
         poll fallback.
     - _Requirements: 3.6_
-  - [ ] 6.4 Implement `UsbEnumerator` (SetupAPI or WMI) filtering Sony VID `054C` + the PID table.
+  - [~] 6.4 Implement `UsbEnumerator` (SetupAPI or WMI) filtering Sony VID `054C` + the PID table.
     - _Requirements: 3.1_
-  - [ ] 6.5 Implement `Ejector` (IOCTL_STORAGE_EJECT_MEDIA / lock+dismount, mountvol fallback) with a
+  - [~] 6.5 Implement `Ejector` (IOCTL_STORAGE_EJECT_MEDIA / lock+dismount, mountvol fallback) with a
         watchdog timeout.
     - _Requirements: 16.2_
-  - [ ] 6.6 Implement `FileDialogs` (IFileOpenDialog/IFileSaveDialog or `rfd`) and a reveal-in-
+  - [~] 6.6 Implement `FileDialogs` (IFileOpenDialog/IFileSaveDialog or `rfd`) and a reveal-in-
         Explorer helper (`explorer /select`).
     - _Requirements: 4.1, 8.2, 10.4, 13.3_
-  - [ ] 6.7 Implement `MediaControls` via WinRT SystemMediaTransportControls (play/pause/next/prev,
+  - [~] 6.7 Implement `MediaControls` via WinRT SystemMediaTransportControls (play/pause/next/prev,
         now-playing metadata + artwork).
     - _Requirements: 7.4_
 
 - [ ] 7. Implement the SQLite library scanner and local library service
-  - [ ] 7.1 Port `library_scanner.rs` with `rusqlite` `tracks_cache` schema, WAL/pragmas, incremental
+  - [~] 7.1 Port `library_scanner.rs` with `rusqlite` `tracks_cache` schema, WAL/pragmas, incremental
         migrations (SenseMe + date columns), mtime+size change detection, per-mount cache load, and
         cache mutators.
     - _Requirements: 18.1, 18.2_
-  - [ ] 7.2 Port `local_library.rs` (managed folders persisted, rescan, exposed tracks + precomputed
+  - [~] 7.2 Port `local_library.rs` (managed folders persisted, rescan, exposed tracks + precomputed
         albums, update-track).
     - _Requirements: 4.1, 4.7, 18.4_
-  - [ ] 7.3 Implement off-thread precompute of albums/artists/recent/language/stats and publish the
+  - [~] 7.3 Implement off-thread precompute of albums/artists/recent/language/stats and publish the
         results into app state via a channel.
     - _Requirements: 18.4_
-  - [ ] 7.4 Write an integration test that scans a fixture music tree into SQLite and asserts the
+  - [~] 7.4 Write an integration test that scans a fixture music tree into SQLite and asserts the
         album/artist/hi-res/recent/language aggregation counts.
     - _Requirements: 18.1, 18.2, 18.4_
 
 - [ ] 8. Implement audio metadata read/write (`audio_tagger.rs`) and artwork engine (`artwork.rs`)
-  - [ ] 8.1 Implement baseline RGB JPEG encode (resize ≤800px, q~0.92, force baseline, strip
+  - [~] 8.1 Implement baseline RGB JPEG encode (resize ≤800px, q~0.92, force baseline, strip
         alpha/CMYK) and the validator that produces compliance badges (`image` crate).
     - _Requirements: 13.1, 13.2_
-  - [ ] 8.2 Implement the native FLAC writer (Vorbis comments + Picture block type 3) and the
+  - [~] 8.2 Implement the native FLAC writer (Vorbis comments + Picture block type 3) and the
         multi-tier reader (native → `lofty`/`symphonia` → ffprobe) including cover + lyrics
         extraction and genre normalization.
     - _Requirements: 8.4, 13.4, 15.5_
-  - [ ] 8.3 Implement the native binary ID3v2.3 UTF-16+BOM writer (synchsafe sizes) and M4A tagging
+  - [~] 8.3 Implement the native binary ID3v2.3 UTF-16+BOM writer (synchsafe sizes) and M4A tagging
         via ffmpeg.
     - _Requirements: 8.4, 13.4_
-  - [ ] 8.4 Implement timestamp preservation (restore created/modified) and SMFM injection into
+  - [~] 8.4 Implement timestamp preservation (restore created/modified) and SMFM injection into
         FLAC/MP3.
     - _Requirements: 8.5, 6.3, 15.4_
-  - [ ] 8.5 Write round-trip (read→write→read) tests and golden-byte tests comparing tagger output
+  - [~] 8.5 Write round-trip (read→write→read) tests and golden-byte tests comparing tagger output
         against fixtures captured from the macOS app, and write validator tests against progressive/
         CMYK/oversized image fixtures.
     - _Requirements: 13.1, 13.2, 13.4, 6.3_
 
 - [ ] 9. Implement the Walkman engine and device detection services
-  - [ ] 9.1 Port `device_detector.rs`: the Sony model catalog, supported/android checks, icon-key
+  - [~] 9.1 Port `device_detector.rs`: the Sony model catalog, supported/android checks, icon-key
         map, `inspect_volume` (capability XML parse, signatures, capacity-based WM1 M2 split),
         `detect_devices`, and write unit tests for model classification from fixture signatures.
     - _Requirements: 3.2, 3.3, 3.4_
-  - [ ] 9.2 Port `usb_detector.rs` on top of `UsbEnumerator` to publish connected Walkmans.
+  - [~] 9.2 Port `usb_detector.rs` on top of `UsbEnumerator` to publish connected Walkmans.
     - _Requirements: 3.1_
-  - [ ] 9.3 Port `walkman_engine.rs`: drive detection (VolumeProvider + signatures + free-space),
+  - [~] 9.3 Port `walkman_engine.rs`: drive detection (VolumeProvider + signatures + free-space),
         custom-storage folder (plain stored path), `target_track_url`, playlist read/write/rename
         (CRLF `.m3u8`), byte/duration formatters, and the companion `.lrc` writer; write unit tests
         for the `.m3u8` CRLF/relative-path output and the `.lrc` formatter.
     - _Requirements: 3.2, 3.7, 11.1, 15.4_
-  - [ ] 9.4 Implement Clean & Eject (Windows + residual macOS junk removal, flush, eject via
+  - [~] 9.4 Implement Clean & Eject (Windows + residual macOS junk removal, flush, eject via
         `Ejector` with watchdog).
     - _Requirements: 16.1, 16.2_
 
 - [ ] 10. Implement transcoding and the transfer queue
-  - [ ] 10.1 Port `transcode.rs` preset→ffmpeg-args table verbatim (all presets + loudnorm + `-vn`)
+  - [~] 10.1 Port `transcode.rs` preset→ffmpeg-args table verbatim (all presets + loudnorm + `-vn`)
         using the bundled ffmpeg with bundled-first path discovery, and write unit tests asserting
         the generated argument list per preset.
     - _Requirements: 9.3, 19.2, 19.3_
-  - [ ] 10.2 Port `transfer_queue.rs`: queue items/status, Sony-OS vs Android format rules, enqueue
+  - [~] 10.2 Port `transfer_queue.rs`: queue items/status, Sony-OS vs Android format rules, enqueue
         from tracks/paths, direct transfer (copy/convert/optimize/lyrics/sanitize), single-pass
         concurrent prep, dual target (MUSIC/LEARNING + chapter playlist), and progress reporting.
     - _Requirements: 9.1, 9.2, 9.4, 9.6, 9.7_
-  - [ ] 10.3 Port `duplicate_guard.rs` (per-mount SQLite cache check before transfer).
+  - [~] 10.3 Port `duplicate_guard.rs` (per-mount SQLite cache check before transfer).
     - _Requirements: 9.5_
 
 - [ ] 11. Implement duplicate finder and backup/restore services
-  - [ ] 11.1 Port `duplicate_finder.rs`: same-storage grouping, exact vs cross-album scopes, ±4s
+  - [~] 11.1 Port `duplicate_finder.rs`: same-storage grouping, exact vs cross-album scopes, ±4s
         clustering with normalized title/artist (version-tag preserving), quality-diff detection,
         recoverable-space totals, auto-resolve, and write unit tests for the matching/clustering
         logic.
     - _Requirements: 10.1, 10.2, 10.3, 10.4_
-  - [ ] 11.2 Port `backup_restore.rs`: scopes/destinations, PBKDF2-HMAC-SHA256 (100k) + AES-256-GCM
+  - [~] 11.2 Port `backup_restore.rs`: scopes/destinations, PBKDF2-HMAC-SHA256 (100k) + AES-256-GCM
         encryption (16-byte salt, streamed) + manifest, free-space verify (GetDiskFreeSpaceExW),
         CopyFileExW + FlushFileBuffers, junk cleanup on restore, and cancelation.
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6_
-  - [ ] 11.3 Write backup→restore round-trip integration tests for both encrypted and unencrypted
+  - [~] 11.3 Write backup→restore round-trip integration tests for both encrypted and unencrypted
         bundles, asserting manifest contents and free-space checks.
     - _Requirements: 12.4, 12.5_
 
 - [ ] 12. Implement trim/cut, lyrics, online metadata, and art caches
-  - [ ] 12.1 Port `trim_cut.rs`: waveform generation (symphonia + ffmpeg fallback) and the ffmpeg
+  - [~] 12.1 Port `trim_cut.rs`: waveform generation (symphonia + ffmpeg fallback) and the ffmpeg
         filtergraph for trim/cut/channel ops/fades/gain, preserving tags+artwork afterward.
     - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
-  - [ ] 12.2 Port `lyrics.rs`: LRCLIB (get/search, duration-matched, same user-agent) + Lyrics.ovh
+  - [~] 12.2 Port `lyrics.rs`: LRCLIB (get/search, duration-matched, same user-agent) + Lyrics.ovh
         fallback, concurrent workers, and synced/plain/skipped/not-found accounting.
     - _Requirements: 15.1, 15.3_
-  - [ ] 12.3 Port `online_metadata.rs` (iTunes + Deezer) and `artist_art_cache.rs` /
+  - [~] 12.3 Port `online_metadata.rs` (iTunes + Deezer) and `artist_art_cache.rs` /
         `cover_art_cache.rs` (disk + memory caches).
     - _Requirements: 17.1, 17.2, 17.3, 5.4_
 
-- [ ] 13. Implement audio playback (`player.rs`)
+- [~] 13. Implement audio playback (`player.rs`)
   - Implement the playback engine (`rodio`/Media Foundation) with play/pause/seek/next/prev, a queue
     + advance hook, progress reporting, and SMTC integration via `MediaControls`.
   - _Requirements: 7.1, 7.4, 7.5_
 
 - [ ] 14. Build the Local Library and Walkman library views
-  - [ ] 14.1 Implement `LocalLibraryView`: display modes (Songs/Albums/Artists/Recently Added/
+  - [~] 14.1 Implement `LocalLibraryView`: display modes (Songs/Albums/Artists/Recently Added/
         Folders), the 8 sort options, search, track/folder context menus (incl. Relocate Folder…),
         DirectTransfer sheet, format-warning + removal confirmation dialogs; Manage Local Folders
         sheet.
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
-  - [ ] 14.2 Implement `LibraryView` (All Songs): sortable multi-column table + search + batch-lyrics
+  - [~] 14.2 Implement `LibraryView` (All Songs): sortable multi-column table + search + batch-lyrics
         button + per-row context menu; shared selection (Shift-range/Ctrl-toggle) and 88pt inset.
     - _Requirements: 5.1, 2.9_
-  - [ ] 14.3 Implement `RecentlyAddedView`: time-scope picker (24h/7d/30d/All) + ranked table + batch
+  - [~] 14.3 Implement `RecentlyAddedView`: time-scope picker (24h/7d/30d/All) + ranked table + batch
         lyrics.
     - _Requirements: 5.2_
-  - [ ] 14.4 Implement `AlbumsView`: cover grid, 7 sort options, format filter chips, expandable
+  - [~] 14.4 Implement `AlbumsView`: cover grid, 7 sort options, format filter chips, expandable
         search, album detail drill-down, album+track context menus, batch lyrics.
     - _Requirements: 5.3_
-  - [ ] 14.5 Implement `ArtistsView`: artist grid with avatars (cache-backed), search, drill-down,
+  - [~] 14.5 Implement `ArtistsView`: artist grid with avatars (cache-backed), search, drill-down,
         context menus.
     - _Requirements: 5.4_
-  - [ ] 14.6 Implement `HiResAudioView`: view modes (Tracks/Albums/Artists), track + album sort
+  - [~] 14.6 Implement `HiResAudioView`: view modes (Tracks/Albums/Artists), track + album sort
         options, format/quality filter chips, search, context menus, batch lyrics.
     - _Requirements: 5.5_
-  - [ ] 14.7 Implement `LanguageStudyView`: 5 display modes, 6 sort options, two tables, context
+  - [~] 14.7 Implement `LanguageStudyView`: 5 display modes, 6 sort options, two tables, context
         menus, batch lyrics.
     - _Requirements: 5.6_
-  - [ ] 14.8 Implement `DeviceOverviewView`: model image, specs, per-drive storage gauges, quick
+  - [~] 14.8 Implement `DeviceOverviewView`: model image, specs, per-drive storage gauges, quick
         stats, Refresh/Eject, multi-device switcher; and the Android MTP help sheet + custom-folder
         bridge.
     - _Requirements: 3.5, 3.7_
 
 - [ ] 15. Build playback UI: now-playing bar, fullscreen player, SensMe channels
-  - [ ] 15.1 Implement `TrackPreviewBar` bound to the player (artwork, title/artist, transport,
+  - [~] 15.1 Implement `TrackPreviewBar` bound to the player (artwork, title/artist, transport,
         scrubber, open-inspector, open-fullscreen).
     - _Requirements: 7.2_
-  - [ ] 15.2 Implement `FullScreenNowPlayingView`: large artwork, blurred ambient background,
+  - [~] 15.2 Implement `FullScreenNowPlayingView`: large artwork, blurred ambient background,
         transport, karaoke auto-scroll synced lyrics (~0.3s lead), active-line highlight.
     - _Requirements: 7.3_
-  - [ ] 15.3 Implement `SenseMeChannelsView`: 3D cover-flow carousel of the 14 channels + Shuffle
+  - [~] 15.3 Implement `SenseMeChannelsView`: 3D cover-flow carousel of the 14 channels + Shuffle
         All, atmospheric backgrounds, gapless highlight-seek playback, live lyrics, analysis
         trigger.
     - _Requirements: 6.4, 6.5_
 
 - [ ] 16. Build metadata editors, inspector, and artwork export
-  - [ ] 16.1 Implement `MetadataStudioView` inspector (300pt): artwork, metadata, specs, Edit button,
+  - [~] 16.1 Implement `MetadataStudioView` inspector (300pt): artwork, metadata, specs, Edit button,
         device lyrics display.
     - _Requirements: 8.1, 15.5_
-  - [ ] 16.2 Implement `SongMetadataEditorSheet`: tabs (Tags & Specs / Album Artwork), all editable
+  - [~] 16.2 Implement `SongMetadataEditorSheet`: tabs (Tags & Specs / Album Artwork), all editable
         fields, artwork drop zone + compliance badges, export-to-PC, online metadata + lyrics
         search; modal size ≈960×860.
     - _Requirements: 8.2, 13.2, 13.3, 15.1_
-  - [ ] 16.3 Implement `AlbumMetadataEditorSheet`: batch field edit, unified artwork + `folder.jpg`,
+  - [~] 16.3 Implement `AlbumMetadataEditorSheet`: batch field edit, unified artwork + `folder.jpg`,
         tracklist reorder + renumber (`1..N`/`01..N`).
     - _Requirements: 8.3_
-  - [ ] 16.4 Implement `TransferQueueItemEditorSheet`: per-item tabs + online metadata/lyrics fetch.
+  - [~] 16.4 Implement `TransferQueueItemEditorSheet`: per-item tabs + online metadata/lyrics fetch.
     - _Requirements: 9.1_
 
 - [ ] 17. Build tool views and sheets
-  - [ ] 17.1 Implement `TransferQueueView`: queue list with status, expandable rows, per-item editor,
+  - [~] 17.1 Implement `TransferQueueView`: queue list with status, expandable rows, per-item editor,
         preview context menu, duplicate-import guard sheet (Skip/Overwrite/Keep Both), clear-queue
         confirm, `TransferSyncSheet` progress.
     - _Requirements: 9.1, 9.5, 9.6_
-  - [ ] 17.2 Implement `DuplicatesView`: scope/filter picker, 4 sort options, per-group modal
+  - [~] 17.2 Implement `DuplicatesView`: scope/filter picker, 4 sort options, per-group modal
         resolution, recoverable totals, audition, reveal-in-Explorer, Auto-Resolve Quality, delete
         confirms.
     - _Requirements: 10.4, 10.5_
-  - [ ] 17.3 Implement `PlaylistsView`: create/rename/delete/edit `.m3u8`, add-tracks browser modes,
+  - [~] 17.3 Implement `PlaylistsView`: create/rename/delete/edit `.m3u8`, add-tracks browser modes,
         multi-select (Shift/Ctrl + header Select), reorder, floating batch action bar (Move to Top /
         Up / Down / To Bottom / remove) with instant sync.
     - _Requirements: 11.1, 11.2, 11.3_
-  - [ ] 17.4 Implement `BackupRestoreView`: Backup/Restore modes, 5 scopes + Album/Track filters,
+  - [~] 17.4 Implement `BackupRestoreView`: Backup/Restore modes, 5 scopes + Album/Track filters,
         destination picker, passphrase field, progress + cancel.
     - _Requirements: 12.1, 12.2, 12.3, 12.5_
-  - [ ] 17.5 Implement `TrimAndCutSheet`: waveform scrubber + in/out handles, Trim/Cut modes, ms
+  - [~] 17.5 Implement `TrimAndCutSheet`: waveform scrubber + in/out handles, Trim/Cut modes, ms
         steppers (±0.1/±1/±5s) + lock-to-playhead, channel routing (swap/mono/stereo/isolate L/R/
         phase), fades + gain, preview playback.
     - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
-  - [ ] 17.6 Implement `BatchLyricsGeneratorSheet`: launch from all 7 views, scopes (All in View /
+  - [~] 17.6 Implement `BatchLyricsGeneratorSheet`: launch from all 7 views, scopes (All in View /
         Selected / Active Item / Choose Specific… checklist with search + Select/Deselect All +
         counts + missing diagnostics), live progress/speed/ETA, metric pills, filterable results.
     - _Requirements: 15.2, 15.3_
-  - [ ] 17.7 Implement `CleanEjectSheet`, `AboutWalkmanStudioView` (hardware / supported DAPs /
+  - [~] 17.7 Implement `CleanEjectSheet`, `AboutWalkmanStudioView` (hardware / supported DAPs /
         credits tabs), `ManageLocalFoldersSheet`, `AndroidWalkmanMtpHelpSheet`, and
         `DuplicateImportGuardSheet`.
     - _Requirements: 16.3, 3.7, 4.1_
 
-- [ ] 18. Wire real-time device events and library lifecycle into the shell
+- [~] 18. Wire real-time device events and library lifecycle into the shell
   - Subscribe to `DeviceEvents` + periodic refresh to auto-detect attach/detach; trigger scans and
     off-thread precompute; keep sidebar badges, Device Overview, and the active drive/device in
     sync.
@@ -294,19 +294,19 @@ verification.
   - _Requirements: 3.6, 18.4, 15.6_
 
 - [ ] 19. Packaging and automated verification
-  - [ ] 19.1 Implement bundled-first binary discovery for `ffmpeg.exe`/`ffprobe.exe` and configure
+  - [~] 19.1 Implement bundled-first binary discovery for `ffmpeg.exe`/`ffprobe.exe` and configure
         the installer/standalone-exe build (device images, SensMe covers, fonts, icons) for
         `x86_64` and `aarch64` Windows.
     - _Requirements: 19.1, 19.2_
-  - [ ] 19.2 Write a benchmark/integration test that scans a generated 7,000+ track fixture library
+  - [~] 19.2 Write a benchmark/integration test that scans a generated 7,000+ track fixture library
         and asserts scan+precompute completes within a performance budget without blocking the UI
         thread (worker-channel assertions).
     - _Requirements: 18.4, 19.5_
-  - [ ] 19.3 Implement input-validation guards for all external content (image decode bounds, lyrics/
+  - [~] 19.3 Implement input-validation guards for all external content (image decode bounds, lyrics/
         metadata sanitization) and assert non-destructive behavior in tests: delete operations
         require a confirmation flag, and tag-only operations leave audio stream bytes unchanged.
     - _Requirements: 19.3, 19.4, 19.6_
-  - [ ] 19.4 Implement a parity-checklist test that enumerates every `NavTab`, sort option, filter,
+  - [~] 19.4 Implement a parity-checklist test that enumerates every `NavTab`, sort option, filter,
         display mode, and sheet in code and asserts the set matches a fixture captured from the macOS
         app (so missing/renamed options fail the build).
     - _Requirements: 1.4, 4.2, 4.3, 5.1, 5.2, 5.3, 5.5, 5.6, 10.4, 12.2, 15.2_

@@ -134,6 +134,446 @@
         "chatSessionId": "sess_7649e337-57e1-4cc6-b7c6-bf69f9002979",
         "timestamp": 1794059730897
       }
+    ],
+    "5.1 Port `models.rs` (Track, AlbumItem, ArtistItem, WalkmanDrive, WalkmanDevice,": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871202
+      },
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059881691
+      },
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794060074939
+      }
+    ],
+    "5.4 Port `senseme.rs` 12-Tone math + 14-channel classification (thresholds, time-of-day": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871245
+      },
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794060077835
+      },
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794060345533
+      }
+    ],
+    "6.1 Define the traits `VolumeProvider`, `DeviceEvents`, `UsbEnumerator`, `Ejector`,": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871298
+      }
+    ],
+    "6.2 Implement `VolumeProvider` (GetLogicalDrives/GetDriveTypeW/GetVolumeInformationW) and": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871371
+      }
+    ],
+    "6.3 Implement `DeviceEvents` via WM_DEVICECHANGE/RegisterDeviceNotification plus a periodic": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871462
+      }
+    ],
+    "6.4 Implement `UsbEnumerator` (SetupAPI or WMI) filtering Sony VID `054C` + the PID table.": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871502
+      }
+    ],
+    "6.5 Implement `Ejector` (IOCTL_STORAGE_EJECT_MEDIA / lock+dismount, mountvol fallback) with a": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871537
+      }
+    ],
+    "6.6 Implement `FileDialogs` (IFileOpenDialog/IFileSaveDialog or `rfd`) and a reveal-in-": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871574
+      }
+    ],
+    "6.7 Implement `MediaControls` via WinRT SystemMediaTransportControls (play/pause/next/prev,": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871616
+      }
+    ],
+    "7.1 Port `library_scanner.rs` with `rusqlite` `tracks_cache` schema, WAL/pragmas, incremental": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871668
+      }
+    ],
+    "7.2 Port `local_library.rs` (managed folders persisted, rescan, exposed tracks + precomputed": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871698
+      }
+    ],
+    "7.3 Implement off-thread precompute of albums/artists/recent/language/stats and publish the": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871736
+      }
+    ],
+    "7.4 Write an integration test that scans a fixture music tree into SQLite and asserts the": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871772
+      }
+    ],
+    "8.1 Implement baseline RGB JPEG encode (resize ≤800px, q~0.92, force baseline, strip": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871807
+      }
+    ],
+    "8.2 Implement the native FLAC writer (Vorbis comments + Picture block type 3) and the": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871840
+      }
+    ],
+    "8.3 Implement the native binary ID3v2.3 UTF-16+BOM writer (synchsafe sizes) and M4A tagging": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871889
+      }
+    ],
+    "8.4 Implement timestamp preservation (restore created/modified) and SMFM injection into": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871923
+      }
+    ],
+    "8.5 Write round-trip (read→write→read) tests and golden-byte tests comparing tagger output": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059871973
+      }
+    ],
+    "9.1 Port `device_detector.rs`: the Sony model catalog, supported/android checks, icon-key": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872024
+      }
+    ],
+    "9.2 Port `usb_detector.rs` on top of `UsbEnumerator` to publish connected Walkmans.": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872054
+      }
+    ],
+    "9.3 Port `walkman_engine.rs`: drive detection (VolumeProvider + signatures + free-space),": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872087
+      }
+    ],
+    "9.4 Implement Clean & Eject (Windows + residual macOS junk removal, flush, eject via": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872138
+      }
+    ],
+    "10.1 Port `transcode.rs` preset→ffmpeg-args table verbatim (all presets + loudnorm + `-vn`)": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872191
+      }
+    ],
+    "10.2 Port `transfer_queue.rs`: queue items/status, Sony-OS vs Android format rules, enqueue": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872294
+      }
+    ],
+    "10.3 Port `duplicate_guard.rs` (per-mount SQLite cache check before transfer).": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872334
+      }
+    ],
+    "11.1 Port `duplicate_finder.rs`: same-storage grouping, exact vs cross-album scopes, ±4s": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872367
+      }
+    ],
+    "11.2 Port `backup_restore.rs`: scopes/destinations, PBKDF2-HMAC-SHA256 (100k) + AES-256-GCM": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872403
+      }
+    ],
+    "11.3 Write backup→restore round-trip integration tests for both encrypted and unencrypted": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872442
+      }
+    ],
+    "12.1 Port `trim_cut.rs`: waveform generation (symphonia + ffmpeg fallback) and the ffmpeg": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872486
+      }
+    ],
+    "12.2 Port `lyrics.rs`: LRCLIB (get/search, duration-matched, same user-agent) + Lyrics.ovh": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872520
+      }
+    ],
+    "12.3 Port `online_metadata.rs` (iTunes + Deezer) and `artist_art_cache.rs` /": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872569
+      }
+    ],
+    "13. Implement audio playback (`player.rs`)": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872623
+      }
+    ],
+    "14.1 Implement `LocalLibraryView`: display modes (Songs/Albums/Artists/Recently Added/": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872680
+      }
+    ],
+    "14.2 Implement `LibraryView` (All Songs): sortable multi-column table + search + batch-lyrics": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872713
+      }
+    ],
+    "14.3 Implement `RecentlyAddedView`: time-scope picker (24h/7d/30d/All) + ranked table + batch": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872747
+      }
+    ],
+    "14.4 Implement `AlbumsView`: cover grid, 7 sort options, format filter chips, expandable": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872779
+      }
+    ],
+    "14.5 Implement `ArtistsView`: artist grid with avatars (cache-backed), search, drill-down,": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872812
+      }
+    ],
+    "14.6 Implement `HiResAudioView`: view modes (Tracks/Albums/Artists), track + album sort": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872895
+      }
+    ],
+    "14.7 Implement `LanguageStudyView`: 5 display modes, 6 sort options, two tables, context": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059872996
+      }
+    ],
+    "14.8 Implement `DeviceOverviewView`: model image, specs, per-drive storage gauges, quick": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873030
+      }
+    ],
+    "15.1 Implement `TrackPreviewBar` bound to the player (artwork, title/artist, transport,": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873072
+      }
+    ],
+    "15.2 Implement `FullScreenNowPlayingView`: large artwork, blurred ambient background,": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873107
+      }
+    ],
+    "15.3 Implement `SenseMeChannelsView`: 3D cover-flow carousel of the 14 channels + Shuffle": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873139
+      }
+    ],
+    "16.1 Implement `MetadataStudioView` inspector (300pt): artwork, metadata, specs, Edit button,": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873173
+      }
+    ],
+    "16.2 Implement `SongMetadataEditorSheet`: tabs (Tags & Specs / Album Artwork), all editable": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873204
+      }
+    ],
+    "16.3 Implement `AlbumMetadataEditorSheet`: batch field edit, unified artwork + `folder.jpg`,": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873246
+      }
+    ],
+    "16.4 Implement `TransferQueueItemEditorSheet`: per-item tabs + online metadata/lyrics fetch.": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873305
+      }
+    ],
+    "17.1 Implement `TransferQueueView`: queue list with status, expandable rows, per-item editor,": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873362
+      }
+    ],
+    "17.2 Implement `DuplicatesView`: scope/filter picker, 4 sort options, per-group modal": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873397
+      }
+    ],
+    "17.3 Implement `PlaylistsView`: create/rename/delete/edit `.m3u8`, add-tracks browser modes,": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873431
+      }
+    ],
+    "17.4 Implement `BackupRestoreView`: Backup/Restore modes, 5 scopes + Album/Track filters,": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873465
+      }
+    ],
+    "17.5 Implement `TrimAndCutSheet`: waveform scrubber + in/out handles, Trim/Cut modes, ms": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873520
+      }
+    ],
+    "17.6 Implement `BatchLyricsGeneratorSheet`: launch from all 7 views, scopes (All in View /": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873561
+      }
+    ],
+    "17.7 Implement `CleanEjectSheet`, `AboutWalkmanStudioView` (hardware / supported DAPs /": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873617
+      }
+    ],
+    "18. Wire real-time device events and library lifecycle into the shell": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873662
+      }
+    ],
+    "19.1 Implement bundled-first binary discovery for `ffmpeg.exe`/`ffprobe.exe` and configure": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873704
+      }
+    ],
+    "19.2 Write a benchmark/integration test that scans a generated 7,000+ track fixture library": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873764
+      }
+    ],
+    "19.3 Implement input-validation guards for all external content (image decode bounds, lyrics/": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873806
+      }
+    ],
+    "19.4 Implement a parity-checklist test that enumerates every `NavTab`, sort option, filter,": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794059873847
+      }
+    ],
+    "5. Port the domain models and pure logic (`domain/`)": [
+      {
+        "executionId": "9187e987-97b4-4af3-b2df-6823ccddde35",
+        "chatSessionId": "sess_ea858952-a261-4bcf-9bcb-03317e91535a",
+        "timestamp": 1794060345589
+      }
     ]
   }
 }
