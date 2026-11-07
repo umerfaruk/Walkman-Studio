@@ -637,9 +637,21 @@ verification.
       gold badge, since every row here already passed the filter by definition. 4 new tests,
       including a headless-frame render across all 3 view modes; wired into `detail.rs`'s
       `NavTab::HiRes` arm and a new `AppState::hi_res_view` field.
-  - [~] 14.7 Implement `LanguageStudyView`: 5 display modes, 6 sort options, two tables, context
+  - [x] 14.7 Implement `LanguageStudyView`: 5 display modes, 6 sort options, two tables, context
         menus, batch lyrics.
     - _Requirements: 5.6_
+    - Progress: `ui/src/views/language_study.rs`. `language_study_tracks` reuses the real
+      `Track::is_language_study()` (R5.6's `/LEARNING/` path or language/audiobook/podcast/
+      learning genre check, already ported in task 5.1 — not reimplemented here). All 5 display
+      modes and all 6 sort options (R5.6's own "Speaker/Artist"/"Course/Album" terminology for
+      the same artist/album fields) exist; Albums/Artists modes reuse `albums::
+      group_into_albums`/`artists::group_into_artists` directly (same reuse pattern as 14.6);
+      Folders mode groups by each track's immediate parent directory name
+      (`group_by_folder`) — a reasonable, generically-applicable reading of "Folders" for
+      Language Study material given the task's "two tables" note doesn't specify exactly which
+      pairing, and this mirrors 14.1's own Folders mode in spirit. 4 new tests, including a
+      headless-frame render across all 5 display modes; wired into `detail.rs`'s
+      `NavTab::LanguageStudy` arm and a new `AppState::language_study_view` field.
   - [~] 14.8 Implement `DeviceOverviewView`: model image, specs, per-drive storage gauges, quick
         stats, Refresh/Eject, multi-device switcher; and the Android MTP help sheet + custom-folder
         bridge.

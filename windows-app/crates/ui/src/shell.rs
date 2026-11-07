@@ -172,6 +172,8 @@ pub struct AppState {
     /// `HiResAudioView`'s own UI state (view mode/sorts/filter/search/selection/emitted
     /// commands).
     pub hi_res_view: crate::views::hi_res::HiResViewState,
+    /// `LanguageStudyView`'s own UI state (display mode/sort/selection/emitted commands).
+    pub language_study_view: crate::views::language_study::LanguageStudyViewState,
 }
 
 impl Default for AppState {
@@ -228,6 +230,7 @@ impl Default for AppState {
             albums_view: crate::views::albums::AlbumsViewState::default(),
             artists_view: crate::views::artists::ArtistsViewState::default(),
             hi_res_view: crate::views::hi_res::HiResViewState::default(),
+            language_study_view: crate::views::language_study::LanguageStudyViewState::default(),
         }
     }
 }

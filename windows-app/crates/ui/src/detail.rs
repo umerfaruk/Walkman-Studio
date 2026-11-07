@@ -97,9 +97,11 @@ pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
         NavTab::HiRes => {
             crate::views::hi_res::render(ui, &state.walkman_tracks, &mut state.hi_res_view);
         }
+        NavTab::LanguageStudy => {
+            crate::views::language_study::render(ui, &state.walkman_tracks, &mut state.language_study_view);
+        }
         NavTab::Overview
         | NavTab::SenseMe
-        | NavTab::LanguageStudy
         | NavTab::Playlists
         | NavTab::Duplicates
         | NavTab::Transfer
