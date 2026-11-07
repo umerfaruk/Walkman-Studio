@@ -15,7 +15,7 @@ pub mod fake;
 #[cfg(windows)]
 pub mod windows;
 #[cfg(windows)]
-pub use windows::set_file_times;
+pub use windows::{fast_copy, set_file_times};
 
 /// Enumerates mounted volumes and reports free space.
 /// macOS source: `/Volumes` scan + `statvfs`. Windows: `GetLogicalDrives` +

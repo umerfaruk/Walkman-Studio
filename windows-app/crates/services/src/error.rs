@@ -37,3 +37,9 @@ impl From<rusqlite::Error> for AppError {
         AppError::Database(e.to_string())
     }
 }
+
+impl From<serde_json::Error> for AppError {
+    fn from(e: serde_json::Error) -> Self {
+        AppError::Backup(e.to_string())
+    }
+}

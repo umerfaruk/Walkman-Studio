@@ -23,6 +23,10 @@ rayon = { workspace = true }
 walkdir = { workspace = true }
 lofty = { workspace = true }
 uuid = { workspace = true }
+pbkdf2 = { workspace = true }
+hmac = { workspace = true }
+sha2 = { workspace = true }
+aes-gcm = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

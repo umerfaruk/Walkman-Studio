@@ -19,8 +19,10 @@ pub mod local_library; // task 7.2/7.3
 // pub mod audio_tagger;      // task 8
 pub mod artwork; // task 8.1
 pub mod audio_tagger; // task 8.2/8.3/8.4 orchestrator
+pub mod backup_restore; // task 11.2
 pub mod clean_eject; // task 9.4
 pub mod device_detector; // task 9.1
+pub mod duplicate_finder; // task 11.1
 pub mod duplicate_guard; // task 10.3
 pub mod transcode; // task 10.1
 pub mod transfer_queue; // task 10.2

@@ -396,19 +396,65 @@ verification.
       implements the `Keep Both` resolution by incrementing `"Title (2).ext"`, `"(3)"`, etc.
       against the real filesystem. 7 tests.
 
-- [ ] 11. Implement duplicate finder and backup/restore services
-  - [~] 11.1 Port `duplicate_finder.rs`: same-storage grouping, exact vs cross-album scopes, ±4s
+- [x] 11. Implement duplicate finder and backup/restore services
+  - [x] 11.1 Port `duplicate_finder.rs`: same-storage grouping, exact vs cross-album scopes, ±4s
         clustering with normalized title/artist (version-tag preserving), quality-diff detection,
         recoverable-space totals, auto-resolve, and write unit tests for the matching/clustering
         logic.
     - _Requirements: 10.1, 10.2, 10.3, 10.4_
-  - [~] 11.2 Port `backup_restore.rs`: scopes/destinations, PBKDF2-HMAC-SHA256 (100k) + AES-256-GCM
+    - Progress: `services/src/duplicate_finder.rs`. Operates on one partition's tracks at a time
+      (R10.1 — the caller, not this module, is what guarantees same-storage scoping, by only
+      ever passing one mount's `tracks_for_mount` result); `find_duplicates` groups by normalized
+      title/artist(/album for `ExactSameAlbum`) then splits each group into ±4s duration
+      clusters, so a title/artist match with too large a duration gap isn't treated as a
+      duplicate. Normalization deliberately does *not* strip parenthetical version tags
+      ("(Live)"/"(Acoustic)"/etc.) — leaving them in the key is exactly what keeps those versions
+      from colliding with the original (R10.2). `has_quality_diff`/`recoverable_bytes` compare
+      bitrate/sample-rate/bit-depth/format across a group's members; `auto_resolve_quality` keeps
+      `best_quality_track()` and deletes every other member's audio file plus its companion
+      `.lrc`/`.txt` (R10.4). This module only has the matching/clustering/resolution *logic* —
+      native confirmation dialogs (R10.5) are a UI-layer concern (task 17.2). 8 tests.
+  - [x] 11.2 Port `backup_restore.rs`: scopes/destinations, PBKDF2-HMAC-SHA256 (100k) + AES-256-GCM
         encryption (16-byte salt, streamed) + manifest, free-space verify (GetDiskFreeSpaceExW),
         CopyFileExW + FlushFileBuffers, junk cleanup on restore, and cancelation.
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6_
-  - [~] 11.3 Write backup→restore round-trip integration tests for both encrypted and unencrypted
+    - Progress: `services/src/backup_restore.rs`, plus a new `platform::fast_copy`
+      (`CopyFileExW` + `FlushFileBuffers`, `platform/src/windows/fast_copy.rs`) alongside task
+      8.4's `set_file_times`. Unencrypted backups are a plain `manifest.json` + `files/` tree
+      directory bundle (R12.4); encrypted backups are a single `*.walkmanbackup.enc` file: a
+      16-byte random salt, PBKDF2-HMAC-SHA256 (100,000 rounds, `pbkdf2`/`sha2` crates) deriving
+      an AES-256-GCM key (`aes-gcm` crate), then the JSON manifest and every source file each
+      sealed as their own AES-GCM ciphertext with a fresh random nonce. "Streamed" is interpreted
+      here as *per-file* (never more than one source file in memory at once), not the `aes-gcm`
+      crate's chunked `stream` AEAD construction — that exotic incremental-nonce API was judged
+      not worth the added risk of getting subtly wrong with no way to check it against a second
+      implementation; per-file AES-GCM blocks are simpler, still satisfy AEAD's
+      nonce-uniqueness requirement (a fresh random nonce per file), and are what's actually
+      tested. `verify_free_space` goes through `platform::VolumeProvider::free_space`
+      (R12.6/R12.5); `restore_unencrypted_backup`/`restore_encrypted_backup` both finish with
+      `clean_eject::clean_junk` (R12.5's "run junk-file cleanup"). Every multi-file loop takes a
+      `CancelCheck` (`&dyn Fn() -> bool`) polled between files (R12.5's "cancelable"). Scopes
+      (R12.2) are a plain enum recorded in the manifest; `default_backup_dir` gives R12.3's
+      `%USERPROFILE%\Music\Walkman Studio Backups` default — external-drive/custom-folder
+      destinations are just a different `dest_dir`/`dest_file` path, not separate code paths.
+      5 tests, including a real encrypted round trip (encrypt → decrypt → compare) and a
+      wrong-passphrase rejection — not mocked.
+  - [x] 11.3 Write backup→restore round-trip integration tests for both encrypted and unencrypted
         bundles, asserting manifest contents and free-space checks.
     - _Requirements: 12.4, 12.5_
+    - Progress: `services/tests/backup_restore_integration.rs`. Builds a small multi-file,
+      multi-directory fixture library, backs it up (both formats), asserts the manifest's entry
+      count and `total_bytes` against the real file sizes, exercises `verify_free_space` both
+      failing (too little free space) and passing, restores, and compares every restored file's
+      bytes against the original byte-for-byte. Distinct from 11.2's own unit tests (which cover
+      the wrong-passphrase case and internal edge cases) — this is the public-API-only,
+      consumer-style round trip the task asks for. 2 tests.
+
+  **Verified:** all of task 11 builds, links, and passes under the MSVC toolchain —
+  `cargo test -p walkman-services` (41 unit tests + 2 task-7 + 2 task-11 integration tests, all
+  green), `cargo clippy --workspace --tests` clean. `cargo test --workspace` passes in full
+  (288 tests). New workspace dependencies: `pbkdf2`, `hmac`, `sha2`, `aes-gcm` (encryption, task
+  11.2 only — `hmac` is pulled in by `pbkdf2`/`sha2` but not used directly).
 
 - [ ] 12. Implement trim/cut, lyrics, online metadata, and art caches
   - [~] 12.1 Port `trim_cut.rs`: waveform generation (symphonia + ffmpeg fallback) and the ffmpeg
@@ -579,22 +625,23 @@ verification.
 - Golden-byte and parity fixtures (tasks 8.5, 19.4) should be captured from the macOS app output and
   committed under `crates/*/tests/fixtures/`.
 - No audio stream is re-encoded during metadata-only operations; this is asserted in task 19.3.
-- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, and 10 complete; 5.2, 5.3, 6.1,
-  6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3, 9.4, 10.1, 10.2,
-  and 10.3 complete; 3.1, 5.1, 5.4, 6.3, and 6.7 partially done (see per-task Progress notes). The
-  dev host switched to the MSVC toolchain (Visual Studio Build Tools installed,
-  `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
-  dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
-  bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo test
-  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 272 tests). 6.3 and
-  6.7 stay `[~]` because they're intentionally partial (poll-only device events; no
+- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, and 11 complete; 5.2, 5.3,
+  6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3, 9.4, 10.1,
+  10.2, 10.3, 11.1, 11.2, and 11.3 complete; 3.1, 5.1, 5.4, 6.3, and 6.7 partially done (see
+  per-task Progress notes). The dev host switched to the MSVC toolchain (Visual Studio Build
+  Tools installed, `rustup default stable-x86_64-pc-windows-msvc`), which resolved the
+  `windows-gnu` dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both
+  `rusqlite`'s bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo
+  test --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 288 tests).
+  6.3 and 6.7 stay `[~]` because they're intentionally partial (poll-only device events; no
   artwork/command callbacks yet); task 8.5 is checked off despite a known, documented gap (no
   real macOS-app-captured golden-byte fixtures exist in this repo, so the writers are
   round-trip-tested, not byte-diffed against the Swift app's own output) rather than marked
   unverified, since everything that *can* be tested without those fixtures is; task 9's
-  `detect_devices` device/drive-grouping heuristic and task 10.1's un-exercised-against-a-real-
-  `ffmpeg.exe` transcode path have similarly documented limitations (see their own Progress
-  notes) rather than being unverified. New workspace dependencies: task 7 added `walkdir`
-  (recursive scan), `lofty` (tag reading only — task 8's native readers/writers are separate),
-  `uuid` (folder ids), `tempfile` (test fixtures); tasks 8, 9, and 10 added none (10 builds on
-  task 7's `rayon` and task 8's `ffmpeg_util`/`lofty`/`audio_tagger`, already present).
+  `detect_devices` device/drive-grouping heuristic, task 10.1's un-exercised-against-a-real-
+  `ffmpeg.exe` transcode path, and task 11.2's per-file (not `aes-gcm`'s chunked `stream`
+  construction) interpretation of "streamed" encryption have similarly documented limitations
+  (see their own Progress notes) rather than being unverified. New workspace dependencies: task 7
+  added `walkdir` (recursive scan), `lofty` (tag reading only — task 8's native readers/writers
+  are separate), `uuid` (folder ids), `tempfile` (test fixtures); task 11 added `pbkdf2`, `hmac`,
+  `sha2`, `aes-gcm` (encryption); tasks 8, 9, and 10 added none.

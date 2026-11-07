@@ -43,6 +43,11 @@ walkdir = "2.5.0"
 lofty = "0.22.0"
 tempfile = "3.15"
 uuid = { version = "1.11", features = ["v4"] }
+# Backup/restore encryption (task 11.2): PBKDF2-HMAC-SHA256 + AES-256-GCM per design.md.
+pbkdf2 = "0.12"
+hmac = "0.12"
+sha2 = "0.10"
+aes-gcm = "0.10"
 
 [profile.release]
 opt-level = 3
