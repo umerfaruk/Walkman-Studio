@@ -1,0 +1,10 @@
+/target
+**/*.rs.bk
+Cargo.lock.bak
+
+# Bundled binaries are large; keep them out of git (fetched at package time).
+/assets/bin/ffmpeg.exe
+/assets/bin/ffprobe.exe
+
+# Bundled fonts (e.g. Segoe UI) are not redistributable; vendored at package time.
+/assets/fonts/

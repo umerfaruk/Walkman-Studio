@@ -1,0 +1,22 @@
+[package]
+name = "walkman-services"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Application services for Walkman Studio (library, tagging, transfer, backup, lyrics, playback)."
+
+[dependencies]
+walkman-domain = { workspace = true }
+walkman-platform = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+rusqlite = { workspace = true }
+image = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true }
+rayon = { workspace = true }

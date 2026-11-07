@@ -1,0 +1,33 @@
+[package]
+name = "walkman-ui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "UI layer for Walkman Studio: theme tokens, reusable glass widgets, and views."
+
+[dependencies]
+walkman-domain = { workspace = true }
+walkman-services = { workspace = true }
+walkman-platform = { workspace = true }
+log = { workspace = true }
+
+# GUI toolkit (decision recorded in design.md: egui/eframe — pure Rust, fully
+# custom-styled, single-binary Windows deliverable).
+egui = "0.30"
+eframe = { version = "0.30", default-features = false, features = ["default_fonts", "glow", "wgpu"] }
+
+[dev-dependencies]
+# Display-free RGBA image buffers for the theme snapshot tests (task 3.5). Pinned to the
+# same version the workspace already shares so the raster tests stay consistent with the
+# artwork engine (task 8.1). No GPU/windowing dependency is introduced for tests.
+image = { workspace = true }
+
+[lints.rust]
+# `walkman_bundled_fonts` / `walkman_bundled_icons` are build-time cfgs set by the Windows
+# packaging step (task 19.1) once the Segoe UI / monospace font files are vendored under
+# assets/fonts/ and the Lucide glyph font under assets/icons/.
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(walkman_bundled_fonts)',
+    'cfg(walkman_bundled_icons)',
+] }

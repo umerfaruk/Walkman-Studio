@@ -1,0 +1,22 @@
+[package]
+name = "walkman-studio"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Walkman Studio for Windows — native music manager for Sony Walkman DAPs."
+
+[[bin]]
+name = "walkman-studio"
+path = "src/main.rs"
+
+[dependencies]
+walkman-ui = { workspace = true }
+walkman-domain = { workspace = true }
+walkman-services = { workspace = true }
+walkman-platform = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+eframe = { version = "0.30", default-features = false, features = ["default_fonts", "glow", "wgpu"] }
+egui = "0.30"

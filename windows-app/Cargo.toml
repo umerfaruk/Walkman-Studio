@@ -1,0 +1,46 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/app",
+    "crates/ui",
+    "crates/domain",
+    "crates/services",
+    "crates/platform",
+]
+
+[workspace.package]
+version = "3.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT"
+authors = ["Walkman Studio contributors"]
+description = "Walkman Studio for Windows — native music manager for Sony Walkman DAPs (Rust port)"
+repository = "https://github.com/Jhay-EL/Walkman-Studio"
+
+[workspace.dependencies]
+# Internal crates
+walkman-domain = { path = "crates/domain" }
+walkman-services = { path = "crates/services" }
+walkman-platform = { path = "crates/platform" }
+walkman-ui = { path = "crates/ui" }
+
+# Shared third-party dependencies (pinned)
+anyhow = "1.0.95"
+thiserror = "2.0.11"
+log = "0.4.25"
+env_logger = "0.11.6"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.137"
+rusqlite = { version = "0.33.0", features = ["bundled"] }
+image = "0.25.5"
+reqwest = { version = "0.12.12", default-features = false, features = ["rustls-tls", "json"] }
+tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "process"] }
+rayon = "1.10.0"
+chrono = { version = "0.4.39", features = ["serde"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"

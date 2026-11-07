@@ -1,0 +1,72 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "3.1 Define color constants (obsidian/card/input/border, silver, gold + the three gradients)": [
+      {
+        "executionId": "74fb8dbd-8856-4c98-a613-42621945a04a",
+        "chatSessionId": "sess_4cb12d1f-7a77-41bc-99ce-ad2b99cc9666",
+        "timestamp": 1794056687055
+      },
+      {
+        "executionId": "74fb8dbd-8856-4c98-a613-42621945a04a",
+        "chatSessionId": "sess_4cb12d1f-7a77-41bc-99ce-ad2b99cc9666",
+        "timestamp": 1794057001896
+      }
+    ],
+    "3.2 Implement the glass surface widgets: `liquid_glass` (r12), `studio_glass_card` (r14": [
+      {
+        "executionId": "c621b9af-d7f7-4a4d-a305-41af23f4016c",
+        "chatSessionId": "sess_fe94a215-0a19-4429-8f2d-df6b65ebac18",
+        "timestamp": 1794057032084
+      },
+      {
+        "executionId": "c621b9af-d7f7-4a4d-a305-41af23f4016c",
+        "chatSessionId": "sess_fe94a215-0a19-4429-8f2d-df6b65ebac18",
+        "timestamp": 1794057366527
+      }
+    ],
+    "3.3 Implement the six button variants with hover/press/cursor feedback, plus the active/": [
+      {
+        "executionId": "e2ca1935-0d77-427e-81a7-4e192fe37dd1",
+        "chatSessionId": "sess_da66763b-cc1a-4220-b356-9e18049221b4",
+        "timestamp": 1794057392616
+      },
+      {
+        "executionId": "e2ca1935-0d77-427e-81a7-4e192fe37dd1",
+        "chatSessionId": "sess_da66763b-cc1a-4220-b356-9e18049221b4",
+        "timestamp": 1794057796585
+      }
+    ],
+    "3.4 Add the SF-Symbol→bundled-glyph icon mapping table and the 38pt control-height and 88pt": [
+      {
+        "executionId": "e2ca1935-0d77-427e-81a7-4e192fe37dd1",
+        "chatSessionId": "sess_da66763b-cc1a-4220-b356-9e18049221b4",
+        "timestamp": 1794057807644
+      },
+      {
+        "executionId": "e2ca1935-0d77-427e-81a7-4e192fe37dd1",
+        "chatSessionId": "sess_da66763b-cc1a-4220-b356-9e18049221b4",
+        "timestamp": 1794058012364
+      }
+    ],
+    "3.5 Write snapshot tests that render each theme widget to an image buffer and assert color": [
+      {
+        "executionId": "e2ca1935-0d77-427e-81a7-4e192fe37dd1",
+        "chatSessionId": "sess_da66763b-cc1a-4220-b356-9e18049221b4",
+        "timestamp": 1794058015213
+      },
+      {
+        "executionId": "e2ca1935-0d77-427e-81a7-4e192fe37dd1",
+        "chatSessionId": "sess_da66763b-cc1a-4220-b356-9e18049221b4",
+        "timestamp": 1794058234738
+      }
+    ],
+    "3. Port the design system into `ui/theme.rs`": [
+      {
+        "executionId": "e2ca1935-0d77-427e-81a7-4e192fe37dd1",
+        "chatSessionId": "sess_da66763b-cc1a-4220-b356-9e18049221b4",
+        "timestamp": 1794058234783
+      }
+    ]
+  }
+}
