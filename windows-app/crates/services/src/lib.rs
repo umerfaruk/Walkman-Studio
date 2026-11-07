@@ -21,6 +21,9 @@ pub mod artwork; // task 8.1
 pub mod audio_tagger; // task 8.2/8.3/8.4 orchestrator
 pub mod clean_eject; // task 9.4
 pub mod device_detector; // task 9.1
+pub mod duplicate_guard; // task 10.3
+pub mod transcode; // task 10.1
+pub mod transfer_queue; // task 10.2
 pub mod usb_detector; // task 9.2
 pub mod walkman_engine; // task 9.3
 pub mod ffmpeg_util; // bundled-first ffmpeg/ffprobe discovery (tasks 8.3, 10.1)

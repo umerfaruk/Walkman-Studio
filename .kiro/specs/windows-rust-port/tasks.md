@@ -342,17 +342,59 @@ verification.
       task 6.5 had not done. 5 tests for `clean_eject`; `walkman-platform`'s existing eject tests
       (`fake::tests::fake_ejector_*`) still pass unchanged.
 
-- [ ] 10. Implement transcoding and the transfer queue
-  - [~] 10.1 Port `transcode.rs` preset→ffmpeg-args table verbatim (all presets + loudnorm + `-vn`)
+- [x] 10. Implement transcoding and the transfer queue
+  - [x] 10.1 Port `transcode.rs` preset→ffmpeg-args table verbatim (all presets + loudnorm + `-vn`)
         using the bundled ffmpeg with bundled-first path discovery, and write unit tests asserting
         the generated argument list per preset.
     - _Requirements: 9.3, 19.2, 19.3_
-  - [~] 10.2 Port `transfer_queue.rs`: queue items/status, Sony-OS vs Android format rules, enqueue
+    - Progress: `services/src/transcode.rs`. `Preset` covers every preset R9.3 lists (Copy/
+      CopyOptimize/CopyRaw, MP3 128/192/256/320/V0, AAC 128/256/320, FLAC 16/44.1 + 24/48 + 24/96
+      + 24/192, ALAC 16, WAV 16); `build_ffmpeg_args` is a pure function (no `ffmpeg` process
+      spawned) asserted per-preset by 10 tests, matching the task's own "assert the generated
+      argument list" instruction. `-vn` is always added (so an attached-picture video stream
+      never rides along into a converted audio file) and `loudnorm` is silently dropped for the
+      three bit-perfect presets, since `-c copy` and an audio filter can't be combined in
+      `ffmpeg`. `CopyRaw` is a plain filesystem copy that never invokes `ffmpeg` at all — handled
+      by `transfer_queue.rs`'s dispatch, not by this module's `transcode()`, which asserts rather
+      than silently no-op'ing if called with it. Discovery reuses task 8.3's
+      `ffmpeg_util::find_ffmpeg`; since `ffmpeg` isn't bundled yet (task 19.1), `transcode()`
+      itself isn't exercised against a real binary, same documented gap as task 8.3's M4A path.
+  - [x] 10.2 Port `transfer_queue.rs`: queue items/status, Sony-OS vs Android format rules, enqueue
         from tracks/paths, direct transfer (copy/convert/optimize/lyrics/sanitize), single-pass
         concurrent prep, dual target (MUSIC/LEARNING + chapter playlist), and progress reporting.
     - _Requirements: 9.1, 9.2, 9.4, 9.6, 9.7_
-  - [~] 10.3 Port `duplicate_guard.rs` (per-mount SQLite cache check before transfer).
+    - Progress: `services/src/transfer_queue.rs`. `TransferQueue` (a `Mutex<Vec<TransferItem>>`)
+      covers enqueue/remove/clear/update/snapshot; `item_from_track`/`item_from_path` build a
+      pending item from an indexed `Track` (R9.7's 1-click local-library transfer) or directly
+      from a dropped file's tags (R9.1). `is_format_supported` applies distinct Sony-OS/Android
+      extension tables (R9.6). `prepare_all` is the "single-pass concurrent metadata-preparation
+      stage" (R9.7) — via `rayon`, across every not-yet-optimized item in the queue — but only
+      extracts + Baseline-JPEG-optimizes embedded artwork today; lyrics fetching is task 12.2's
+      job and isn't wired in (an item's `lyrics` field is simply carried through from whatever
+      `item_from_path`'s tag read already found). `transfer_item` is the actual per-item transfer:
+      lays out `/MUSIC/Artist/Album/NN - Title.ext` via `walkman_engine::target_track_fs_path`
+      from *sanitized-for-filesystem* fields, copies (`CopyRaw`) or transcodes (every other
+      preset) the audio, then writes *tag* fields sanitized via `sanitize_walkman_text` (which
+      preserves things like `/` in "AC/DC" — only the path needs `sanitize_filename`'s stricter
+      pass) plus any optimized artwork, and applies a `DuplicateResolution`
+      (Skip/Overwrite/KeepBoth, defaulting to KeepBoth — it never silently overwrites) when the
+      destination collides. `transfer_batch_async` runs a whole batch on a background thread,
+      publishing `TransferProgress` per item over a channel (R9.6's `TransferSyncSheet`, same
+      off-thread pattern as task 7.3). `write_chapter_playlist` + `target_root_for` cover R9.2's
+      dual MUSIC/LEARNING targets and automatic chapter-playlist generation. 7 tests, including a
+      full round trip through the real filesystem (fixture FLAC → transfer → read tags back) and
+      a caught-and-fixed bug in the test itself (asserting the sanitized *path* component against
+      the unsanitized *tag* value — fixed to assert each against the sanitization function that
+      actually applies to it).
+  - [x] 10.3 Port `duplicate_guard.rs` (per-mount SQLite cache check before transfer).
     - _Requirements: 9.5_
+    - Progress: `services/src/duplicate_guard.rs`. `check_for_duplicate`/
+      `check_batch_for_duplicates` match case/whitespace-insensitively against
+      `library_scanner`'s per-mount `tracks_cache` (title+artist only — a lighter, faster check
+      than `duplicate_finder.rs`'s task-11.1 ±4s/quality-diff clustering, which is for the
+      standalone Duplicates view, not an inline pre-transfer gate). `resolve_keep_both_path`
+      implements the `Keep Both` resolution by incrementing `"Title (2).ext"`, `"(3)"`, etc.
+      against the real filesystem. 7 tests.
 
 - [ ] 11. Implement duplicate finder and backup/restore services
   - [~] 11.1 Port `duplicate_finder.rs`: same-storage grouping, exact vs cross-album scopes, ±4s
@@ -537,22 +579,22 @@ verification.
 - Golden-byte and parity fixtures (tasks 8.5, 19.4) should be captured from the macOS app output and
   committed under `crates/*/tests/fixtures/`.
 - No audio stream is re-encoded during metadata-only operations; this is asserted in task 19.3.
-- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, and 9 complete; 5.2, 5.3, 6.1, 6.2,
-  6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3, and 9.4 complete; 3.1,
-  5.1, 5.4, 6.3, and 6.7 partially done (see per-task Progress notes). The dev host switched to
-  the MSVC toolchain (Visual Studio Build Tools installed,
+- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, and 10 complete; 5.2, 5.3, 6.1,
+  6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3, 9.4, 10.1, 10.2,
+  and 10.3 complete; 3.1, 5.1, 5.4, 6.3, and 6.7 partially done (see per-task Progress notes). The
+  dev host switched to the MSVC toolchain (Visual Studio Build Tools installed,
   `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
   dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
   bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo test
-  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 248 tests). 6.3 and
+  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 272 tests). 6.3 and
   6.7 stay `[~]` because they're intentionally partial (poll-only device events; no
   artwork/command callbacks yet); task 8.5 is checked off despite a known, documented gap (no
   real macOS-app-captured golden-byte fixtures exist in this repo, so the writers are
   round-trip-tested, not byte-diffed against the Swift app's own output) rather than marked
   unverified, since everything that *can* be tested without those fixtures is; task 9's
-  `detect_devices` device/drive-grouping heuristic has similarly documented limitations (see its
-  own Progress notes) rather than being unverified. New workspace dependencies: task 7 added
-  `walkdir` (recursive scan), `lofty` (tag reading only — task 8's native readers/writers are
-  separate), `uuid` (folder ids), `tempfile` (test fixtures); task 8 added none; task 9 added
-  none (it builds on `walkman-platform`'s existing `VolumeProvider`/`UsbEnumerator`/`Ejector`
-  traits and fakes, task 6).
+  `detect_devices` device/drive-grouping heuristic and task 10.1's un-exercised-against-a-real-
+  `ffmpeg.exe` transcode path have similarly documented limitations (see their own Progress
+  notes) rather than being unverified. New workspace dependencies: task 7 added `walkdir`
+  (recursive scan), `lofty` (tag reading only — task 8's native readers/writers are separate),
+  `uuid` (folder ids), `tempfile` (test fixtures); tasks 8, 9, and 10 added none (10 builds on
+  task 7's `rayon` and task 8's `ffmpeg_util`/`lofty`/`audio_tagger`, already present).
