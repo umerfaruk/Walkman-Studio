@@ -23,6 +23,8 @@ eframe = { version = "0.30", default-features = false, features = ["default_font
 # same version the workspace already shares so the raster tests stay consistent with the
 # artwork engine (task 8.1). No GPU/windowing dependency is introduced for tests.
 image = { workspace = true }
+# Only for `now_playing`'s player-binding test, which writes a tiny throwaway `.wav`.
+tempfile = { workspace = true }
 
 [lints.rust]
 # `walkman_bundled_fonts` / `walkman_bundled_icons` are build-time cfgs set by the Windows

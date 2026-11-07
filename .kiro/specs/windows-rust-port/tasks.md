@@ -674,12 +674,41 @@ verification.
       `AppState::devices`/`device_quick_stats`/`device_overview_view` fields.
 
 - [ ] 15. Build playback UI: now-playing bar, fullscreen player, SensMe channels
-  - [~] 15.1 Implement `TrackPreviewBar` bound to the player (artwork, title/artist, transport,
+  - [x] 15.1 Implement `TrackPreviewBar` bound to the player (artwork, title/artist, transport,
         scrubber, open-inspector, open-fullscreen).
     - _Requirements: 7.2_
-  - [~] 15.2 Implement `FullScreenNowPlayingView`: large artwork, blurred ambient background,
+    - Progress: `ui/src/now_playing.rs` gains a new `AppState::player: Option<Arc<
+      walkman_services::player::Player>>` field (`None` until task 18 constructs one — the
+      bar/overlay still fall back to the task 4.4 placeholder behavior with no player bound)
+      and `sync_now_playing_from_player`, called once per frame from `shell::layout_shell`
+      before the bar/overlay render: it polls the real `Player` (R7.5's auto-advance) and
+      refreshes `AppState::now_playing` from `Player::status()`/`queue()` each frame, mapping
+      `bits_per_sample > 16 || sample_rate > 48_000` to the bar's existing Hi-Res badge. The
+      transport buttons and the scrubber's seek now call the real `Player::previous`/
+      `toggle_play_pause`/`next`/`seek` directly when a player is bound, *in addition to* still
+      raising the existing one-shot `PlayerRequests` flags, so the task 4.4 flag-based tests
+      keep passing either way. 2 new tests (a bound-`Player` round trip, using a real default
+      audio output device exactly like `player.rs`'s own tests — skipped on a host with none —
+      and a no-player no-op check).
+  - [x] 15.2 Implement `FullScreenNowPlayingView`: large artwork, blurred ambient background,
         transport, karaoke auto-scroll synced lyrics (~0.3s lead), active-line highlight.
     - _Requirements: 7.3_
+    - Progress: `walkman_engine.rs` gains `parse_lrc` (the read-side counterpart to the
+      existing `write_lrc`/task 9.3 — parses multi-timestamp lines and skips non-timestamp
+      header tags like `[offset:...]`) and `active_lyric_line_index(lines, position, lead)`
+      (R7.3's ~0.3s lead-time lookup), both with 5 new unit tests. `now_playing.rs`'s
+      `render_fullscreen_overlay` is rewritten from the task 4.4 title-only placeholder to: a
+      large (220x220) artwork tile + HR badge, title/artist, a karaoke lyrics window (the
+      active line plus 2 lines of context either side, from a new `AppState::lyrics_lines: Vec<
+      LrcLine>` / `lyrics_lead_seconds: f64` — empty/0.3s respectively until task 18 loads a
+      real `.lrc` file) with the active line highlighted in silver and the rest muted, and the
+      bar's own real `transport_controls`/`scrubber_row` reused verbatim so fullscreen playback
+      control is identical to the floating bar's, not a parallel implementation. Two honest
+      simplifications, documented in the function's own doc comment: artwork stays a
+      placeholder tile (no texture pipeline exists yet — same caveat as 14.4/14.5's grid tiles)
+      and the "blurred ambient background" is a flat tint wash (egui's 2D painter has no blur
+      filter) rather than a real blur of the (placeholder) artwork. 2 new tests, including a
+      headless-frame render across 5 playback positions (before/mid/after the loaded lyrics).
   - [~] 15.3 Implement `SenseMeChannelsView`: 3D cover-flow carousel of the 14 channels + Shuffle
         All, atmospheric backgrounds, gapless highlight-seek playback, live lyrics, analysis
         trigger.

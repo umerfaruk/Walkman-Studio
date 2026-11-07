@@ -136,6 +136,17 @@ pub struct AppState {
     /// In-progress scrubber drag target (seconds). Set while dragging the scrubber; the
     /// player consumes it on release (task 13). `None` when not seeking.
     pub player_seek_target: Option<f64>,
+    /// The real playback engine (task 13), once bound. `None` until task 18 constructs one;
+    /// with no player, the bar/fullscreen view fall back to the flag-only placeholder
+    /// behavior from task 4.4 so existing request-flag tests keep passing.
+    pub player: Option<std::sync::Arc<walkman_services::player::Player>>,
+    /// Parsed `.lrc` lines for the currently playing track (task 15.2's karaoke lyrics),
+    /// sorted by timestamp. Empty until task 18 loads a real `.lrc` file for the active
+    /// track; an empty list simply renders no lyrics.
+    pub lyrics_lines: Vec<walkman_services::walkman_engine::LrcLine>,
+    /// Lead time (seconds) applied when picking the active lyric line (requirement 7.3),
+    /// matching the macOS karaoke view's ~0.3s anticipation.
+    pub lyrics_lead_seconds: f64,
 
     // --- Local Library view data + state (task 14.1) ---
     //
@@ -228,6 +239,9 @@ impl Default for AppState {
             is_fullscreen_player: false,
             player_requests: PlayerRequests::default(),
             player_seek_target: None,
+            player: None,
+            lyrics_lines: Vec::new(),
+            lyrics_lead_seconds: 0.3,
 
             local_tracks: Vec::new(),
             local_folders: Vec::new(),
@@ -269,6 +283,10 @@ impl AppState {
 /// space. Each region currently draws a placeholder; the real sidebar/detail/inspector
 /// content is filled in by tasks 4.2–4.5.
 pub fn layout_shell(ctx: &egui::Context, state: &mut AppState) {
+    // Refresh `now_playing` from the real player (task 13), if one is bound, and let it
+    // auto-advance (R7.5). A no-op while `state.player` is `None` (task 18 constructs one).
+    now_playing::sync_now_playing_from_player(state);
+
     // --- Top: toolbar + menu bar (requirements 1.7, 1.8). ---
     //
     // Added first so the `TopBottomPanel::top` spans the full width above the three

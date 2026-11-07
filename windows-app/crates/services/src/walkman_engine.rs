@@ -327,6 +327,55 @@ fn format_lrc_timestamp(seconds: f64) -> String {
     format!("[{minutes:02}:{secs:02}.{centis:02}]")
 }
 
+/// Parses `.lrc` content (as written by [`write_lrc`], or any standard synced-lyrics file) back
+/// into [`LrcLine`]s, sorted chronologically — the read half of the `write_lrc`/`parse_lrc` pair,
+/// used by the fullscreen player's karaoke auto-scroll (task 15.2, R7.3) and the SensMe channels
+/// view's live lyrics (task 15.3, R6.5). A single line may carry more than one `[mm:ss.xx]` tag
+/// (a common `.lrc` convention for a line repeated at several timestamps); each tag produces its
+/// own [`LrcLine`]. Lines with no recognizable tag (including a leading `[offset:...]` header)
+/// are skipped.
+pub fn parse_lrc(content: &str) -> Vec<LrcLine> {
+    let mut lines = Vec::new();
+    for raw_line in content.lines() {
+        let mut rest = raw_line.trim_end_matches(['\r', '\n']);
+        let mut timestamps = Vec::new();
+        while let Some(stripped) = rest.strip_prefix('[') {
+            let Some(end) = stripped.find(']') else { break };
+            let tag = &stripped[..end];
+            if let Some(seconds) = parse_lrc_timestamp(tag) {
+                timestamps.push(seconds);
+            } else {
+                break; // not a timestamp tag (e.g. `[offset:...]`, `[ar:...]`) — stop consuming.
+            }
+            rest = &stripped[end + 1..];
+        }
+        let text = rest.to_string();
+        for seconds in timestamps {
+            lines.push(LrcLine { timestamp_seconds: seconds, text: text.clone() });
+        }
+    }
+    lines.sort_by(|a, b| a.timestamp_seconds.total_cmp(&b.timestamp_seconds));
+    lines
+}
+
+/// Parses one `mm:ss.xx` or `mm:ss` tag body (without the brackets) into seconds.
+fn parse_lrc_timestamp(tag: &str) -> Option<f64> {
+    let (minutes_str, rest) = tag.split_once(':')?;
+    let minutes: f64 = minutes_str.trim().parse().ok()?;
+    let seconds: f64 = rest.trim().parse().ok()?;
+    Some(minutes * 60.0 + seconds)
+}
+
+/// Finds the index of the line that should be highlighted at `position_seconds`, given a
+/// `lead_seconds` lookahead (R7.3's "~0.3s vocal lead-time" — the active line switches slightly
+/// *before* its timestamp, so the highlight feels anticipatory rather than late). `lines` must
+/// already be chronologically sorted (as [`parse_lrc`] returns them). Returns `None` before the
+/// first line's (lead-adjusted) timestamp.
+pub fn active_lyric_line_index(lines: &[LrcLine], position_seconds: f64, lead_seconds: f64) -> Option<usize> {
+    let adjusted = position_seconds + lead_seconds;
+    lines.iter().rposition(|l| l.timestamp_seconds <= adjusted)
+}
+
 /// Synthesizes evenly-spaced timestamps for plain (unsynced) lyrics text split into lines, so a
 /// companion `.lrc` can still be written when only plain lyrics are available (R15.4). Lines are
 /// spaced evenly across `duration_seconds` starting at `start_seconds`.
@@ -567,4 +616,66 @@ mod tests {
         assert_eq!(folder.learning_dir(), PathBuf::from(r"D:\MyWalkman\LEARNING"));
     }
 
+    #[test]
+    fn parse_lrc_round_trips_write_lrc_output() {
+        let lines = vec![
+            LrcLine { timestamp_seconds: 65.5, text: "second line".to_string() },
+            LrcLine { timestamp_seconds: 1.25, text: "first line".to_string() },
+        ];
+        let written = {
+            let mut sorted = lines.clone();
+            sorted.sort_by(|a, b| a.timestamp_seconds.total_cmp(&b.timestamp_seconds));
+            let mut content = String::new();
+            for line in &sorted {
+                content.push_str(&format_lrc_timestamp(line.timestamp_seconds));
+                content.push_str(&line.text);
+                content.push_str("\r\n");
+            }
+            content
+        };
+
+        let parsed = parse_lrc(&written);
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].text, "first line");
+        assert!((parsed[0].timestamp_seconds - 1.25).abs() < 0.01);
+        assert_eq!(parsed[1].text, "second line");
+        assert!((parsed[1].timestamp_seconds - 65.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn parse_lrc_skips_a_leading_offset_header() {
+        let content = "[offset:-150]\r\n[00:01.00]hello\r\n";
+        let parsed = parse_lrc(content);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].text, "hello");
+    }
+
+    #[test]
+    fn parse_lrc_expands_a_line_with_multiple_timestamp_tags() {
+        let content = "[00:01.00][00:05.00]repeated line\r\n";
+        let parsed = parse_lrc(content);
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].text, "repeated line");
+        assert_eq!(parsed[1].text, "repeated line");
+        assert!((parsed[1].timestamp_seconds - 5.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn active_lyric_line_index_applies_the_lead_and_picks_the_most_recent_line() {
+        let lines = vec![
+            LrcLine { timestamp_seconds: 0.0, text: "a".into() },
+            LrcLine { timestamp_seconds: 10.0, text: "b".into() },
+            LrcLine { timestamp_seconds: 20.0, text: "c".into() },
+        ];
+        // At 9.8s with a 0.3s lead, the effective position is 10.1s, which is past line b's
+        // 10.0s timestamp but not yet at c's 20.0s.
+        assert_eq!(active_lyric_line_index(&lines, 9.8, 0.3), Some(1));
+        assert_eq!(active_lyric_line_index(&lines, -1.0, 0.3), None);
+        assert_eq!(active_lyric_line_index(&lines, 25.0, 0.3), Some(2));
+    }
+
+    #[test]
+    fn active_lyric_line_index_handles_empty_lines() {
+        assert_eq!(active_lyric_line_index(&[], 10.0, 0.3), None);
+    }
 }

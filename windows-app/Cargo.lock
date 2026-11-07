@@ -4506,6 +4506,7 @@ dependencies = [
  "egui",
  "image",
  "log",
+ "tempfile",
  "walkman-domain",
  "walkman-platform",
  "walkman-services",

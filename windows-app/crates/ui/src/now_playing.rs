@@ -12,14 +12,17 @@
 //!   viewport-covering overlay stands in for `FullScreenNowPlayingView` (task 15.2) with a
 //!   collapse button that clears the flag.
 //!
-//! ## Placeholder player binding (task 13 / 15)
+//! ## Player binding (task 13 / 15)
 //!
-//! The real player service (`player.rs`) and the player-bound `TrackPreviewBar` /
-//! `FullScreenNowPlayingView` land in tasks 13 and 15. For task 4.4 the bar is driven by a
-//! minimal in-`AppState` placeholder, [`NowPlayingPlaceholder`], and the transport/scrubber
-//! controls only raise one-shot request flags on [`AppState`] (consumed by the player
-//! wiring later) — **no audio playback happens here**. When nothing is playing the bar
-//! renders an idle state (the bar is always present, per requirement 1.9).
+//! The bar is still driven by the [`NowPlayingPlaceholder`] shape introduced in task 4.4,
+//! but [`sync_now_playing_from_player`] now refreshes it from the real `walkman_services`
+//! [`walkman_services::player::Player`] (task 13) each frame when [`AppState::player`] is
+//! bound, and the transport/scrubber handlers call the real player methods directly. The
+//! one-shot [`PlayerRequests`] flags are still *also* raised alongside those calls so the
+//! existing flag-based tests keep passing; [`AppState::player`] stays `None` (and the bar
+//! falls back to flags only) until task 18 constructs a `Player` and wires it in. When
+//! nothing is playing the bar renders an idle state (the bar is always present, per
+//! requirement 1.9).
 //!
 //! ## Pure logic vs. rendering
 //!
@@ -30,8 +33,32 @@
 
 use eframe::egui;
 
+use walkman_services::player::PlaybackState;
+use walkman_services::walkman_engine::active_lyric_line_index;
+
 use crate::shell::AppState;
-use crate::theme::{button, color, font, glass, sizing};
+use crate::theme::{button, color, font, glass, gradient, sizing};
+
+/// Refreshes [`AppState::now_playing`] from the real player (task 13) when one is bound
+/// (task 18 constructs it), and lets the player auto-advance (R7.5) by polling it once per
+/// frame. A no-op while `state.player` is `None`, so the task 4.4 placeholder keeps working
+/// until the real player is wired in.
+///
+/// Call once per frame, before the bar/overlay render (see [`crate::shell::layout_shell`]).
+pub fn sync_now_playing_from_player(state: &mut AppState) {
+    let Some(player) = state.player.clone() else { return };
+    player.poll();
+    let status = player.status();
+    let track = status.current_index.and_then(|i| player.queue().get(i).cloned());
+    state.now_playing = track.map(|t| NowPlayingPlaceholder {
+        title: t.title,
+        artist: t.artist,
+        duration_secs: status.duration_seconds,
+        position_secs: status.position_seconds,
+        is_playing: status.state == PlaybackState::Playing,
+        is_hi_res: t.bits_per_sample > 16 || t.sample_rate > 48_000,
+    });
+}
 
 /// Minimal placeholder for the track the now-playing bar displays, standing in for the
 /// real `player.currentTrack` + progress until the player service lands (task 13). Only
@@ -210,7 +237,9 @@ fn transport_controls(ui: &mut egui::Ui, state: &mut AppState) {
         // Previous. Glyph via the text symbol (no matching bundled `Icon` yet; the player
         // UI in task 15 maps these to the real transport glyphs).
         if glyph_button(ui, "\u{23EE}", 30.0, enabled, false).clicked() {
-            // TODO(task 13): player.playPrevious()
+            if let Some(player) = &state.player {
+                let _ = player.previous();
+            }
             state.player_requests.previous = true;
         }
         ui.add_space(8.0);
@@ -218,14 +247,18 @@ fn transport_controls(ui: &mut egui::Ui, state: &mut AppState) {
         // Play / Pause (prominent circular silver button).
         let play_glyph = if playing { "\u{23F8}" } else { "\u{25B6}" };
         if play_pause_button(ui, play_glyph, enabled).clicked() {
-            // TODO(task 13): player.togglePlayPause() / start the first queued track.
+            if let Some(player) = &state.player {
+                player.toggle_play_pause();
+            }
             state.player_requests.toggle_play = true;
         }
         ui.add_space(8.0);
 
         // Next.
         if glyph_button(ui, "\u{23ED}", 30.0, enabled, false).clicked() {
-            // TODO(task 13): player.playNext()
+            if let Some(player) = &state.player {
+                let _ = player.next();
+            }
             state.player_requests.next = true;
         }
     });
@@ -359,7 +392,9 @@ fn scrubber_row(ui: &mut egui::Ui, state: &mut AppState, track: &NowPlayingPlace
             state.player_seek_target = Some(pos);
         }
         if slider.drag_stopped() || slider.lost_focus() {
-            // TODO(task 13): player.seek(to: pos)
+            if let Some(player) = &state.player {
+                let _ = player.seek(pos);
+            }
             state.player_requests.seek = true;
         }
 
@@ -486,10 +521,20 @@ fn play_pause_button(ui: &mut egui::Ui, glyph: &str, enabled: bool) -> egui::Res
     response
 }
 
-/// Renders the fullscreen Now Playing overlay host when [`AppState::is_fullscreen_player`]
-/// is set: a viewport-covering obsidian overlay standing in for `FullScreenNowPlayingView`
-/// (task 15.2), with a collapse button that clears the flag. The real content (large
-/// artwork, blurred ambient background, karaoke synced lyrics) lands in task 15.2.
+/// Renders the fullscreen Now Playing overlay (`FullScreenNowPlayingView`, task 15.2) when
+/// [`AppState::is_fullscreen_player`] is set: a viewport-covering overlay with a tinted
+/// ambient background, large artwork, title/artist, real transport controls, and
+/// karaoke-style synced lyrics (requirement 7.3), plus a collapse button that clears the
+/// flag.
+///
+/// ## Honest simplifications
+/// - **Artwork**: still a placeholder tile (a note glyph over [`color::INPUT`]) — no cover
+///   art texture pipeline exists yet; real artwork lands with the cache wiring in task 18.
+/// - **Ambient background**: egui's 2D immediate-mode painter has no blur filter, so the
+///   macOS "blurred artwork" backdrop is approximated here as a flat top-to-bottom tint
+///   wash ([`gradient::Direction::TopToBottom`]) over the obsidian base, using the theme's
+///   existing gradient tokens rather than sampling the (placeholder) artwork's dominant
+///   color.
 ///
 /// Call once per frame from [`crate::shell::layout_shell`]. No-op when not in fullscreen.
 pub fn render_fullscreen_overlay(ctx: &egui::Context, state: &mut AppState) {
@@ -504,9 +549,25 @@ pub fn render_fullscreen_overlay(ctx: &egui::Context, state: &mut AppState) {
         .show(ctx, |ui| {
             ui.set_min_size(screen.size());
             ui.set_max_size(screen.size());
-            // Opaque obsidian backdrop covering the whole viewport. The dynamic blurred
-            // ambient background from the artwork is task 15.2.
+
+            // Obsidian base + a subtle top-to-bottom tint wash standing in for the blurred
+            // ambient artwork background (see "Honest simplifications" above).
             ui.painter().rect_filled(screen, 0.0, color::OBSIDIAN);
+            let wash = gradient::LinearGradient {
+                start: glass::white_alpha(0.05),
+                end: glass::white_alpha(0.0),
+                direction: gradient::Direction::TopToBottom,
+            };
+            let band = egui::Rect::from_min_max(
+                screen.min,
+                egui::pos2(screen.max.x, screen.min.y + screen.height() * 0.45),
+            );
+            ui.painter().rect_filled(band, 0.0, wash.sample(0.0));
+            ui.painter().rect_filled(
+                egui::Rect::from_min_max(band.left_bottom(), band.right_bottom() + egui::vec2(0.0, screen.height() * 0.2)),
+                0.0,
+                wash.sample(0.6),
+            );
 
             // Top-right collapse button.
             let collapse_size = egui::vec2(36.0, 36.0);
@@ -514,9 +575,7 @@ pub fn render_fullscreen_overlay(ctx: &egui::Context, state: &mut AppState) {
                 egui::pos2(screen.right() - 16.0 - collapse_size.x, screen.top() + 16.0),
                 collapse_size,
             );
-            let mut collapse_ui = ui.new_child(
-                egui::UiBuilder::new().max_rect(collapse_rect),
-            );
+            let mut collapse_ui = ui.new_child(egui::UiBuilder::new().max_rect(collapse_rect));
             if glyph_button(&mut collapse_ui, "\u{2715}", 36.0, true, false)
                 .on_hover_text("Collapse full screen player (Esc)")
                 .clicked()
@@ -528,43 +587,137 @@ pub fn render_fullscreen_overlay(ctx: &egui::Context, state: &mut AppState) {
                 state.is_fullscreen_player = false;
             }
 
-            // Centered placeholder for the real fullscreen view (task 15.2).
-            let title = state
-                .now_playing
-                .as_ref()
-                .map(|t| {
-                    if t.title.trim().is_empty() {
-                        "Unknown Title".to_owned()
-                    } else {
-                        t.title.clone()
-                    }
-                })
-                .unwrap_or_else(|| "Nothing playing".to_owned());
-            let mut center = ui.new_child(
+            let track = state.now_playing.clone();
+            let mut content = ui.new_child(
                 egui::UiBuilder::new()
                     .max_rect(screen)
-                    .layout(egui::Layout::centered_and_justified(
-                        egui::Direction::TopDown,
-                    )),
+                    .layout(egui::Layout::top_down(egui::Align::Center)),
             );
-            center.vertical_centered(|ui| {
-                ui.label(
-                    egui::RichText::new(title)
-                        .font(font::title1())
-                        .color(color::SILVER_LIGHT),
-                );
-                ui.label(
-                    egui::RichText::new("Full Screen Now Playing (task 15.2)")
-                        .font(font::callout())
-                        .color(color::SILVER_MUTED),
-                );
+            content.add_space(screen.height() * 0.08);
+
+            match &track {
+                Some(t) => {
+                    fullscreen_artwork(&mut content, t);
+                    content.add_space(18.0);
+                    fullscreen_title_block(&mut content, t);
+                    content.add_space(28.0);
+                    fullscreen_lyrics(&mut content, state, t);
+                    content.add_space(24.0);
+                }
+                None => {
+                    content.add_space(screen.height() * 0.2);
+                    content.label(
+                        egui::RichText::new("Nothing playing")
+                            .font(font::title1())
+                            .color(color::SILVER_MUTED),
+                    );
+                    content.add_space(24.0);
+                }
+            }
+
+            // Transport + scrubber, pinned near the bottom (reuses the bar's own widgets
+            // so fullscreen playback control matches the floating bar exactly).
+            content.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
+                ui.add_space(32.0);
+                ui.horizontal(|ui| {
+                    transport_controls(ui, state);
+                });
+                if let Some(t) = &track {
+                    ui.add_space(14.0);
+                    ui.allocate_ui(egui::vec2(480.0_f32.min(screen.width() - 80.0), 24.0), |ui| {
+                        scrubber_row(ui, state, t);
+                    });
+                }
             });
         });
+}
+
+/// Large (220x220) artwork tile for the fullscreen view. Still a placeholder (see the
+/// "Honest simplifications" note on [`render_fullscreen_overlay`]) — a bigger version of
+/// the bar's own note-glyph chip, plus the HR badge when the track is Hi-Res.
+fn fullscreen_artwork(ui: &mut egui::Ui, track: &NowPlayingPlaceholder) {
+    let size = egui::vec2(220.0, 220.0);
+    ui.vertical_centered(|ui| {
+        let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+        ui.painter().rect_filled(rect, egui::Rounding::same(14.0), color::INPUT);
+        ui.painter().rect_stroke(
+            rect,
+            egui::Rounding::same(14.0),
+            egui::Stroke::new(1.0, glass::white_alpha(0.12)),
+        );
+        let galley = ui.painter().layout_no_wrap(
+            "\u{266A}".to_owned(),
+            egui::FontId::proportional(48.0),
+            color::SILVER_MUTED,
+        );
+        ui.painter().galley(rect.center() - galley.size() * 0.5, galley, color::SILVER_MUTED);
+        if track.is_hi_res {
+            ui.add_space(10.0);
+            crate::theme::widgets::hi_res_badge(ui);
+        }
+    });
+}
+
+/// Title + artist block centered below the fullscreen artwork.
+fn fullscreen_title_block(ui: &mut egui::Ui, track: &NowPlayingPlaceholder) {
+    let title = if track.title.trim().is_empty() {
+        "Unknown Title"
+    } else {
+        track.title.as_str()
+    };
+    ui.vertical_centered(|ui| {
+        ui.label(egui::RichText::new(title).font(font::title2()).color(color::SILVER_LIGHT));
+        if !track.artist.trim().is_empty() {
+            ui.add_space(4.0);
+            ui.label(
+                egui::RichText::new(track.artist.as_str())
+                    .font(font::callout())
+                    .color(color::SILVER_MUTED),
+            );
+        }
+    });
+}
+
+/// How many lyric lines surround the active one are shown at once (the active line plus
+/// this many before/after), matching a focused karaoke-style window rather than the whole
+/// transcript.
+const LYRICS_CONTEXT_LINES: usize = 2;
+
+/// Karaoke-style lyrics centered under the title: the active line (per requirement 7.3's
+/// ~0.3s lead, [`AppState::lyrics_lead_seconds`]) highlighted in silver, the surrounding
+/// lines muted. Renders nothing when [`AppState::lyrics_lines`] is empty (no `.lrc` loaded
+/// for this track — task 18 populates it from a real file).
+fn fullscreen_lyrics(ui: &mut egui::Ui, state: &AppState, track: &NowPlayingPlaceholder) {
+    if state.lyrics_lines.is_empty() {
+        return;
+    }
+    let active = active_lyric_line_index(
+        &state.lyrics_lines,
+        track.position_secs,
+        state.lyrics_lead_seconds,
+    );
+    let Some(active) = active else { return };
+    let start = active.saturating_sub(LYRICS_CONTEXT_LINES);
+    let end = (active + LYRICS_CONTEXT_LINES + 1).min(state.lyrics_lines.len());
+
+    ui.vertical_centered(|ui| {
+        for (i, line) in state.lyrics_lines[start..end].iter().enumerate() {
+            let index = start + i;
+            let (font_id, color) = if index == active {
+                (font::title3(), color::SILVER_LIGHT)
+            } else {
+                (font::callout(), color::SILVER_MUTED.gamma_multiply(0.7))
+            };
+            ui.label(egui::RichText::new(line.text.as_str()).font(font_id).color(color));
+            ui.add_space(6.0);
+        }
+    });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use walkman_services::walkman_engine::LrcLine;
 
     // ---- Max-width + centering (R1.9) ----
 
@@ -668,5 +821,135 @@ mod tests {
                 render_fullscreen_overlay(ctx, &mut state);
             });
         }
+    }
+
+    /// The fullscreen overlay's karaoke lyrics render without panicking for every position
+    /// relative to the loaded `.lrc` lines (before the first line, mid-song, after the
+    /// last line), including the empty-lyrics case already covered above.
+    #[test]
+    fn fullscreen_lyrics_render_at_every_playback_position() {
+        let ctx = egui::Context::default();
+        crate::theme::install_fonts(&ctx);
+
+        let lines = vec![
+            LrcLine { timestamp_seconds: 0.0, text: "First line".to_owned() },
+            LrcLine { timestamp_seconds: 10.0, text: "Second line".to_owned() },
+            LrcLine { timestamp_seconds: 20.0, text: "Third line".to_owned() },
+        ];
+
+        for position in [-1.0, 0.0, 10.5, 20.0, 999.0] {
+            let mut state = AppState::default();
+            state.lyrics_lines = lines.clone();
+            state.is_fullscreen_player = true;
+            state.now_playing = Some(NowPlayingPlaceholder {
+                position_secs: position,
+                ..NowPlayingPlaceholder::sample()
+            });
+
+            let _ = ctx.run(Default::default(), |ctx| {
+                egui::CentralPanel::default().show(ctx, |_ui| {});
+                render_fullscreen_overlay(ctx, &mut state);
+            });
+        }
+    }
+
+    // ---- Player binding (task 15.1) ----
+
+    fn sample_player_track(path: &str) -> walkman_domain::models::Track {
+        walkman_domain::models::Track {
+            filename: "a.wav".into(),
+            relative_path: "a.wav".into(),
+            full_path: path.into(),
+            format: "WAV".into(),
+            title: "Bound Title".into(),
+            artist: "Bound Artist".into(),
+            album: "Bound Album".into(),
+            track_num: "1".into(),
+            year: "2024".into(),
+            genre: String::new(),
+            duration_seconds: 10.0,
+            bitrate_kbps: 900,
+            sample_rate: 44_100,
+            bits_per_sample: 16,
+            has_artwork: false,
+            size_bytes: 1,
+            date_added: chrono::Utc::now(),
+            is_senseme_analyzed: false,
+            senseme_bpm: None,
+            senseme_valence: None,
+            senseme_arousal: None,
+            senseme_channels: Vec::new(),
+            senseme_highlight_sec: None,
+        }
+    }
+
+    fn write_tiny_wav(path: &std::path::Path, num_samples: usize) {
+        let samples: Vec<i16> = (0..num_samples).map(|i| ((i % 100) as i16) * 100).collect();
+        let data_len = (samples.len() * 2) as u32;
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"RIFF");
+        bytes.extend_from_slice(&(36 + data_len).to_le_bytes());
+        bytes.extend_from_slice(b"WAVE");
+        bytes.extend_from_slice(b"fmt ");
+        bytes.extend_from_slice(&16u32.to_le_bytes());
+        bytes.extend_from_slice(&1u16.to_le_bytes());
+        bytes.extend_from_slice(&1u16.to_le_bytes());
+        bytes.extend_from_slice(&8_000u32.to_le_bytes());
+        bytes.extend_from_slice(&16_000u32.to_le_bytes());
+        bytes.extend_from_slice(&2u16.to_le_bytes());
+        bytes.extend_from_slice(&16u16.to_le_bytes());
+        bytes.extend_from_slice(b"data");
+        bytes.extend_from_slice(&data_len.to_le_bytes());
+        for s in samples {
+            bytes.extend_from_slice(&s.to_le_bytes());
+        }
+        std::fs::write(path, bytes).unwrap();
+    }
+
+    /// `sync_now_playing_from_player` mirrors a real, bound [`walkman_services::player::Player`]
+    /// into `AppState::now_playing` each frame. Skipped on a host with no default audio output
+    /// device (an environment property, not something this code controls), matching the skip
+    /// pattern `player.rs`'s own tests use.
+    #[test]
+    fn sync_now_playing_from_player_mirrors_a_bound_player() {
+        use walkman_services::player::Player;
+
+        let player = match Player::new(None) {
+            Ok(p) => std::sync::Arc::new(p),
+            Err(_) => {
+                eprintln!("skipping: no default audio output device on this host");
+                return;
+            }
+        };
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("a.wav");
+        write_tiny_wav(&path, 80_000); // long enough not to finish mid-test
+
+        player.set_queue(vec![sample_player_track(path.to_str().unwrap())]);
+        player.play_index(0).unwrap();
+
+        let mut state = AppState::default();
+        state.player = Some(player.clone());
+
+        sync_now_playing_from_player(&mut state);
+
+        let now_playing = state.now_playing.expect("expected now_playing to be populated from the player");
+        assert_eq!(now_playing.title, "Bound Title");
+        assert_eq!(now_playing.artist, "Bound Artist");
+        assert!(now_playing.is_playing);
+        assert!(!now_playing.is_hi_res); // 16-bit / 44.1kHz is not Hi-Res.
+    }
+
+    /// With no player bound, syncing is a no-op — the task 4.4 placeholder in
+    /// `AppState::now_playing` is left exactly as the caller set it.
+    #[test]
+    fn sync_now_playing_from_player_is_a_noop_without_a_bound_player() {
+        let mut state = AppState::default();
+        state.now_playing = Some(NowPlayingPlaceholder::sample());
+
+        sync_now_playing_from_player(&mut state);
+
+        assert_eq!(state.now_playing, Some(NowPlayingPlaceholder::sample()));
     }
 }
