@@ -8,7 +8,7 @@
 
 use eframe::egui;
 use walkman_ui::theme::{color, sizing};
-use walkman_ui::NavTab;
+use walkman_ui::AppState;
 
 fn main() -> eframe::Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
@@ -42,30 +42,18 @@ fn apply_obsidian_visuals(ctx: &egui::Context) {
     ctx.set_visuals(visuals);
 }
 
-/// Root application state. Expanded into the full `AppState` in task 4.
+/// Root application. Owns the shared [`AppState`] and renders the three-column shell
+/// each frame (task 4.1). The sidebar/toolbar/detail-router/now-playing content is filled
+/// in by tasks 4.2–4.5.
+#[derive(Default)]
 struct WalkmanStudioApp {
-    nav_tab: NavTab,
-}
-
-impl Default for WalkmanStudioApp {
-    fn default() -> Self {
-        // Default section on launch matches the macOS app: Local Music Library.
-        Self { nav_tab: NavTab::LocalLibrary }
-    }
+    state: AppState,
 }
 
 impl eframe::App for WalkmanStudioApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Placeholder shell for bootstrap. The three-column layout (sidebar /
-        // detail / inspector) is implemented in task 4.1.
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.add_space(24.0);
-                ui.heading("Walkman Studio");
-                ui.label("Windows (Rust) port — workspace bootstrap");
-                ui.add_space(12.0);
-                ui.label(format!("Current section: {}", self.nav_tab.title()));
-            });
-        });
+        // Three-column shell: fixed 260pt sidebar | flexible detail | optional 300pt
+        // inspector. Default section on launch is Local Music Library (set in AppState).
+        walkman_ui::layout_shell(ctx, &mut self.state);
     }
 }

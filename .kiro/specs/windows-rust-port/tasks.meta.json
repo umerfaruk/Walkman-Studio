@@ -67,6 +67,73 @@
         "chatSessionId": "sess_da66763b-cc1a-4220-b356-9e18049221b4",
         "timestamp": 1794058234783
       }
+    ],
+    "4.1 Lay out the three-column shell: fixed 260pt sidebar, flexible detail, 300pt inspector": [
+      {
+        "executionId": "29bfab78-34cc-4413-a492-d8bc1ba4e79b",
+        "chatSessionId": "sess_7649e337-57e1-4cc6-b7c6-bf69f9002979",
+        "timestamp": 1794058532588
+      },
+      {
+        "executionId": "29bfab78-34cc-4413-a492-d8bc1ba4e79b",
+        "chatSessionId": "sess_7649e337-57e1-4cc6-b7c6-bf69f9002979",
+        "timestamp": 1794058737005
+      }
+    ],
+    "4.2 Implement the `NavTab` enum (13 sections, exact titles/icons) and render the sidebar": [
+      {
+        "executionId": "29bfab78-34cc-4413-a492-d8bc1ba4e79b",
+        "chatSessionId": "sess_7649e337-57e1-4cc6-b7c6-bf69f9002979",
+        "timestamp": 1794058739830
+      },
+      {
+        "executionId": "29bfab78-34cc-4413-a492-d8bc1ba4e79b",
+        "chatSessionId": "sess_7649e337-57e1-4cc6-b7c6-bf69f9002979",
+        "timestamp": 1794059055520
+      }
+    ],
+    "4.3 Implement the toolbar (Refresh, Eject, Inspector toggle Ctrl+I) and menu commands (About,": [
+      {
+        "executionId": "29bfab78-34cc-4413-a492-d8bc1ba4e79b",
+        "chatSessionId": "sess_7649e337-57e1-4cc6-b7c6-bf69f9002979",
+        "timestamp": 1794059058061
+      },
+      {
+        "executionId": "29bfab78-34cc-4413-a492-d8bc1ba4e79b",
+        "chatSessionId": "sess_7649e337-57e1-4cc6-b7c6-bf69f9002979",
+        "timestamp": 1794059323973
+      }
+    ],
+    "4.4 Implement the always-present floating now-playing bar (max width 1040) and the": [
+      {
+        "executionId": "29bfab78-34cc-4413-a492-d8bc1ba4e79b",
+        "chatSessionId": "sess_7649e337-57e1-4cc6-b7c6-bf69f9002979",
+        "timestamp": 1794059326499
+      },
+      {
+        "executionId": "29bfab78-34cc-4413-a492-d8bc1ba4e79b",
+        "chatSessionId": "sess_7649e337-57e1-4cc6-b7c6-bf69f9002979",
+        "timestamp": 1794059595092
+      }
+    ],
+    "4.5 Implement the detail router (`match nav_tab`) that renders a placeholder pane per": [
+      {
+        "executionId": "29bfab78-34cc-4413-a492-d8bc1ba4e79b",
+        "chatSessionId": "sess_7649e337-57e1-4cc6-b7c6-bf69f9002979",
+        "timestamp": 1794059597649
+      },
+      {
+        "executionId": "29bfab78-34cc-4413-a492-d8bc1ba4e79b",
+        "chatSessionId": "sess_7649e337-57e1-4cc6-b7c6-bf69f9002979",
+        "timestamp": 1794059730844
+      }
+    ],
+    "4. Build the application shell (`ui/shell.rs`) with navigation": [
+      {
+        "executionId": "29bfab78-34cc-4413-a492-d8bc1ba4e79b",
+        "chatSessionId": "sess_7649e337-57e1-4cc6-b7c6-bf69f9002979",
+        "timestamp": 1794059730897
+      }
     ]
   }
 }

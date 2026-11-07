@@ -48,23 +48,23 @@ verification.
         values and pixel dimensions against the documented tokens.
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9_
 
-- [ ] 4. Build the application shell (`ui/shell.rs`) with navigation
-  - [ ] 4.1 Lay out the three-column shell: fixed 260pt sidebar, flexible detail, 300pt inspector
+- [x] 4. Build the application shell (`ui/shell.rs`) with navigation
+  - [x] 4.1 Lay out the three-column shell: fixed 260pt sidebar, flexible detail, 300pt inspector
         placeholder; initialize the default nav tab to Local Music Library.
     - _Requirements: 1.1, 1.3, 1.6_
-  - [ ] 4.2 Implement the `NavTab` enum (13 sections, exact titles/icons) and render the sidebar
+  - [x] 4.2 Implement the `NavTab` enum (13 sections, exact titles/icons) and render the sidebar
         sections with their visibility rules (Device 0/1/>1 modes, Walkman Library only when
         connected, Backup & Restore disabled when disconnected) and count badges; add the About
         button.
     - _Requirements: 1.4, 1.5_
-  - [ ] 4.3 Implement the toolbar (Refresh, Eject, Inspector toggle Ctrl+I) and menu commands (About,
+  - [x] 4.3 Implement the toolbar (Refresh, Eject, Inspector toggle Ctrl+I) and menu commands (About,
         Manage Local Folders… Ctrl+Shift+L/Ctrl+Shift+O); implement the inspector widen-on-open
         window-resize logic.
     - _Requirements: 1.7, 1.8_
-  - [ ] 4.4 Implement the always-present floating now-playing bar (max width 1040) and the
+  - [x] 4.4 Implement the always-present floating now-playing bar (max width 1040) and the
         fullscreen overlay host (wired to the player in task 15).
     - _Requirements: 1.9, 7.2_
-  - [ ] 4.5 Implement the detail router (`match nav_tab`) that renders a placeholder pane per
+  - [x] 4.5 Implement the detail router (`match nav_tab`) that renders a placeholder pane per
         section.
     - _Requirements: 1.4_
 
