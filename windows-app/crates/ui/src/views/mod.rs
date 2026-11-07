@@ -3,5 +3,6 @@
 pub mod library;
 pub mod albums;
 pub mod artists;
+pub mod hi_res;
 pub mod local_library;
 pub mod recently_added;

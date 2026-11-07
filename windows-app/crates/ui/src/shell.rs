@@ -169,6 +169,9 @@ pub struct AppState {
     pub albums_view: crate::views::albums::AlbumsViewState,
     /// `ArtistsView`'s own UI state (search/drill-down/emitted commands).
     pub artists_view: crate::views::artists::ArtistsViewState,
+    /// `HiResAudioView`'s own UI state (view mode/sorts/filter/search/selection/emitted
+    /// commands).
+    pub hi_res_view: crate::views::hi_res::HiResViewState,
 }
 
 impl Default for AppState {
@@ -224,6 +227,7 @@ impl Default for AppState {
             recently_added_view: crate::views::recently_added::RecentlyAddedViewState::default(),
             albums_view: crate::views::albums::AlbumsViewState::default(),
             artists_view: crate::views::artists::ArtistsViewState::default(),
+            hi_res_view: crate::views::hi_res::HiResViewState::default(),
         }
     }
 }

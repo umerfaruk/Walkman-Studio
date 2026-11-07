@@ -625,9 +625,18 @@ verification.
       concern this task doesn't own, same caveat as 14.4's cover tiles. 3 new tests, including a
       headless-frame render at all three drill-down levels; wired into `detail.rs`'s
       `NavTab::Artists` arm and a new `AppState::artists_view` field.
-  - [~] 14.6 Implement `HiResAudioView`: view modes (Tracks/Albums/Artists), track + album sort
+  - [x] 14.6 Implement `HiResAudioView`: view modes (Tracks/Albums/Artists), track + album sort
         options, format/quality filter chips, search, context menus, batch lyrics.
     - _Requirements: 5.5_
+    - Progress: `ui/src/views/hi_res.rs`. `hi_res_tracks` is the real `Track::is_hi_res()`
+      filter (>16-bit or >48kHz), applied once up front before any view mode renders. Tracks
+      mode gets its own 6-option sort (R5.5's exact list) and format filter chips; Albums mode
+      reuses `albums::{group_into_albums, sort_albums, AlbumSortOption}` directly rather than a
+      parallel implementation (so its 7 sort options are 14.4's real ones, already tested
+      there); Artists mode reuses `artists::group_into_artists`. Every row carries the Hi-Res
+      gold badge, since every row here already passed the filter by definition. 4 new tests,
+      including a headless-frame render across all 3 view modes; wired into `detail.rs`'s
+      `NavTab::HiRes` arm and a new `AppState::hi_res_view` field.
   - [~] 14.7 Implement `LanguageStudyView`: 5 display modes, 6 sort options, two tables, context
         menus, batch lyrics.
     - _Requirements: 5.6_
