@@ -80,9 +80,16 @@ pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
         NavTab::Library => {
             crate::views::library::render(ui, &state.walkman_tracks, &mut state.library_view);
         }
+        NavTab::RecentlyAdded => {
+            crate::views::recently_added::render(
+                ui,
+                &state.walkman_tracks,
+                chrono::Utc::now(),
+                &mut state.recently_added_view,
+            );
+        }
         NavTab::Overview
         | NavTab::SenseMe
-        | NavTab::RecentlyAdded
         | NavTab::Albums
         | NavTab::Artists
         | NavTab::HiRes

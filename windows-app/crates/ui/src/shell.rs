@@ -161,6 +161,9 @@ pub struct AppState {
     /// `LibraryView`'s own UI state (sort column/direction, search, selection, emitted
     /// commands).
     pub library_view: crate::views::library::LibraryViewState,
+    /// `RecentlyAddedView`'s own UI state (time scope, selection, emitted commands). Reads
+    /// from the same `walkman_tracks` as [`AppState::library_view`].
+    pub recently_added_view: crate::views::recently_added::RecentlyAddedViewState,
 }
 
 impl Default for AppState {
@@ -213,6 +216,7 @@ impl Default for AppState {
 
             walkman_tracks: Vec::new(),
             library_view: crate::views::library::LibraryViewState::default(),
+            recently_added_view: crate::views::recently_added::RecentlyAddedViewState::default(),
         }
     }
 }

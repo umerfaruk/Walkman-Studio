@@ -584,9 +584,18 @@ verification.
       `detail_router_renders_in_headless_frame_for_every_tab`/
       `shell_composes_in_headless_frame_for_representative_states` tests now exercise this view
       for real too and still pass.
-  - [~] 14.3 Implement `RecentlyAddedView`: time-scope picker (24h/7d/30d/All) + ranked table + batch
+  - [x] 14.3 Implement `RecentlyAddedView`: time-scope picker (24h/7d/30d/All) + ranked table + batch
         lyrics.
     - _Requirements: 5.2_
+    - Progress: `ui/src/views/recently_added.rs`. `ranked_tracks` filters to the picked
+      `TimeScope`'s window (relative to a passed-in `now`, so it's deterministic/testable rather
+      than calling `Utc::now()` internally) and sorts newest-first; the table shows an explicit
+      `#N` rank column plus the shared context menu/selection/batch-lyrics pattern 14.2
+      established (reusing `selection::handle_click`). Required promoting `chrono` from a
+      test-only to a real `ui` crate dependency, since this is the first view whose production
+      code (not just its tests) needs it. 4 new tests; wired into `detail.rs`'s
+      `NavTab::RecentlyAdded` arm and a new `AppState::recently_added_view` field (reading the
+      same `walkman_tracks` `library_view` does).
   - [~] 14.4 Implement `AlbumsView`: cover grid, 7 sort options, format filter chips, expandable
         search, album detail drill-down, album+track context menus, batch lyrics.
     - _Requirements: 5.3_
