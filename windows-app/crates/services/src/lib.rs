@@ -11,8 +11,8 @@ pub mod error;
 // Service modules (implemented in later tasks). Declared here to fix the module
 // layout; bodies are filled in incrementally.
 //
-// pub mod library_scanner;   // task 7.1
-// pub mod local_library;     // task 7.2
+pub mod library_scanner; // task 7.1
+pub mod local_library; // task 7.2/7.3
 // pub mod device_detector;   // task 9.1
 // pub mod usb_detector;      // task 9.2
 // pub mod walkman_engine;    // task 9.3 / 9.4

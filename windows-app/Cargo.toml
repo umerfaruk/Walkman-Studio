@@ -37,6 +37,12 @@ reqwest = { version = "0.12.12", default-features = false, features = ["rustls-t
 tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "process"] }
 rayon = "1.10.0"
 chrono = { version = "0.4.39", features = ["serde"] }
+walkdir = "2.5.0"
+# Tag reading only (task 7's scanner); the Sony-compliant byte-level writers/readers are
+# hand-written in audio_tagger.rs (task 8) per design.md.
+lofty = "0.22.0"
+tempfile = "3.15"
+uuid = { version = "1.11", features = ["v4"] }
 
 [profile.release]
 opt-level = 3

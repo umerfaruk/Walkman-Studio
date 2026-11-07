@@ -20,3 +20,9 @@ image = { workspace = true }
 reqwest = { workspace = true }
 tokio = { workspace = true }
 rayon = { workspace = true }
+walkdir = { workspace = true }
+lofty = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

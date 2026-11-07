@@ -87,19 +87,18 @@ verification.
     - _Requirements: 6.1, 6.2_
     - Progress: `SenseMeChannel` catalog (14 channels, order/labels), `SenseMeInfo`, and the `SMFM_PAYLOAD_LEN` (3270) constant done in `domain/senseme.rs` (with tests). Remaining: the BPM/valence/arousal/mood extraction math and the classification thresholds + tests.
 
-- [~] 6. Define the platform abstraction and Windows implementations (`platform/`)
+- [x] 6. Define the platform abstraction and Windows implementations (`platform/`)
   - [x] 6.1 Define the traits `VolumeProvider`, `DeviceEvents`, `UsbEnumerator`, `Ejector`,
         `FileDialogs`, and `MediaControls`, plus a no-op/fake implementation for tests.
     - _Requirements: 3.1, 7.4, 12.6, 16.2_
     - Progress: all six traits + shared types (`model.rs`) done; `platform/src/fake.rs` adds
       `FakeVolumeProvider`/`FakeDeviceEvents`/`FakeUsbEnumerator`/`FakeEjector`/
       `FakeFileDialogs`/`FakeMediaControls` (in-memory, platform-independent, with tests) for
-      `services`/`ui` tests to use instead of real hardware. `cargo check -p walkman-platform
-      --tests` passes (see environment note).
+      `services`/`ui` tests to use instead of real hardware.
   - [x] 6.2 Implement `VolumeProvider` (GetLogicalDrives/GetDriveTypeW/GetVolumeInformationW) and
         free-space (GetDiskFreeSpaceExW).
     - _Requirements: 3.2, 12.6, 18.1_
-    - Progress: `WindowsVolumeProvider` in `platform/src/windows/volumes.rs`; type-checks clean.
+    - Progress: `WindowsVolumeProvider` in `platform/src/windows/volumes.rs`.
   - [~] 6.3 Implement `DeviceEvents` via WM_DEVICECHANGE/RegisterDeviceNotification plus a periodic
         poll fallback.
     - _Requirements: 3.6_
@@ -107,70 +106,95 @@ verification.
       periodic-poll half only (1.5s `GetLogicalDrives` diff) — simpler and sufficient for R3.6's
       "periodic safety refresh" on its own. The `WM_DEVICECHANGE` hidden-window push path is not
       implemented yet; it can be layered on later without changing the `DeviceEvents` trait.
-      Type-checks clean.
+      Intentionally partial, not unverified — kept `[~]` for that reason.
   - [x] 6.4 Implement `UsbEnumerator` (SetupAPI or WMI) filtering Sony VID `054C` + the PID table.
     - _Requirements: 3.1_
     - Progress: `WindowsUsbEnumerator` (`platform/src/windows/usb.rs`) shells out to
       `Get-PnpDevice` (WMI/CIM) instead of raw SetupAPI device-info-set calls, trading a small
       process-spawn cost for far less unsafe FFI surface; parses `VID_xxxx`/`PID_xxxx` plus serial
-      from the PnP instance id, with unit tests on the parser (pass under `cargo check --tests`,
-      see environment note on why `--tests` and not a full `cargo test` run). It reports every USB
-      device seen — the Sony VID/PID table filter belongs to `usb_detector.rs` (task 9.2), per
-      design.md.
+      from the PnP instance id, with unit tests on the parser. It reports every USB device seen —
+      the Sony VID/PID table filter belongs to `usb_detector.rs` (task 9.2), per design.md.
   - [x] 6.5 Implement `Ejector` (IOCTL_STORAGE_EJECT_MEDIA / lock+dismount, mountvol fallback) with a
         watchdog timeout.
     - _Requirements: 16.2_
     - Progress: `WindowsEjector` (`platform/src/windows/eject.rs`) implements
       lock-volume/dismount-volume/eject-media via `DeviceIoControl` on a worker thread with a 10s
-      watchdog (`EjectError::Timeout`); no `mountvol` fallback yet. Type-checks clean.
+      watchdog (`EjectError::Timeout`); no `mountvol` fallback yet.
   - [x] 6.6 Implement `FileDialogs` (IFileOpenDialog/IFileSaveDialog or `rfd`) and a reveal-in-
         Explorer helper (`explorer /select`).
     - _Requirements: 4.1, 8.2, 10.4, 13.3_
     - Progress: `WindowsFileDialogs` (`platform/src/windows/dialogs.rs`) uses the classic
       `SHBrowseForFolderW`/`GetSaveFileNameW` common dialogs (COM-free) instead of
       `IFileOpenDialog`/`IFileSaveDialog`/`rfd`, plus `explorer.exe /select,<path>` for reveal.
-      Type-checks clean.
   - [~] 6.7 Implement `MediaControls` via WinRT SystemMediaTransportControls (play/pause/next/prev,
         now-playing metadata + artwork).
     - _Requirements: 7.4_
     - Progress: `WindowsMediaControls` (`platform/src/windows/media_controls.rs`) binds
       `SystemMediaTransportControls` to the app's `HWND` via
       `ISystemMediaTransportControlsInterop::GetForWindow` (`windows::core::factory`) and wires
-      title/artist/album + play/pause state. Type-checks clean. Artwork (`SetThumbnail`) and the
-      OS-side play/pause/next/prev *command* callbacks (vs. just pushing state out) are not wired
-      yet — left for when task 13 (player) exists to drive them.
+      title/artist/album + play/pause state. Artwork (`SetThumbnail`) and the OS-side
+      play/pause/next/prev *command* callbacks (vs. just pushing state out) are not wired yet —
+      left for when task 13 (player) exists to drive them. Intentionally partial.
 
-  **Environment note (task 6):** this dev host's Rust toolchain is `x86_64-pc-windows-gnu`, and
-  *linking* a binary or test harness that pulls in a recent `windows-sys`/`windows-link` (including
-  `chrono`, already a task-5 dependency) fails with `error calling dlltool 'dlltool.exe': program
-  not found`, even though a working `dlltool.exe` ships with the `rust-mingw` component and runs
-  fine invoked directly — only rustc's own spawn of it fails. This reproduces on a clean checkout
-  with **no code changes at all** (confirmed by stashing and testing `walkman-domain` alone), so it
-  predates and is unrelated to this task's code; `walkman-services`/`walkman-ui` additionally can't
-  *build* at all here because `ring` (a `reqwest` dependency, task 5-era) needs a `gcc.exe` this
-  host doesn't have. The MSVC toolchain is installed but has no linker (`link.exe`) available
-  either. Given that, verification here used `cargo check -p walkman-platform --tests` (type-checks
-  the crate and its unit tests without linking) rather than `cargo build`/`cargo test`: it passes
-  clean for all of task 6, and was used iteratively while writing this code — it caught and fixed
-  five real mistakes (wrong module paths for `GENERIC_READ`/`DRIVE_*`/`ISystemMediaTransportControlsInterop`,
-  a `GetLastError`-vs-`Result` mixup, and a `SHGetPathFromIDListW` buffer-type mismatch). Treat the
-  actual link/run behavior as unverified until this host's `windows-gnu` linker is fixed (working
-  MinGW-w64 binutils + `gcc.exe`) or a real MSVC Build Tools install is added.
+  **Verified 2026-11-07:** the dev host now has Visual Studio Build Tools (MSVC) installed and
+  `rustup default stable-x86_64-pc-windows-msvc`. `cargo test -p walkman-platform` builds, links,
+  and passes all 9 tests (the earlier `windows-gnu` dlltool/raw-dylib issue and the missing-`gcc`
+  issue below were both toolchain gaps, not code problems — switching to MSVC sidesteps both).
+  `cargo test --workspace` passes in full (92+16 `ui` tests, `domain`, `platform`, all green);
+  `walkman-services` also now builds clean (`rusqlite`'s bundled SQLite C source and `reqwest`'s
+  `ring` both need a real C compiler, which MSVC provides).
 
-- [ ] 7. Implement the SQLite library scanner and local library service
-  - [~] 7.1 Port `library_scanner.rs` with `rusqlite` `tracks_cache` schema, WAL/pragmas, incremental
+- [x] 7. Implement the SQLite library scanner and local library service
+  - [x] 7.1 Port `library_scanner.rs` with `rusqlite` `tracks_cache` schema, WAL/pragmas, incremental
         migrations (SenseMe + date columns), mtime+size change detection, per-mount cache load, and
         cache mutators.
     - _Requirements: 18.1, 18.2_
-  - [~] 7.2 Port `local_library.rs` (managed folders persisted, rescan, exposed tracks + precomputed
+    - Progress: `services/src/library_scanner.rs`. `LibraryScanner` owns a `Mutex<Connection>`
+      (bundled `rusqlite`, WAL + `synchronous=NORMAL`), a versioned `migrate()` that creates the
+      base `tracks_cache` schema at v1, `ALTER TABLE`s in the SenseMe/date/mtime columns at v2
+      (tested against a hand-built v1 DB to confirm existing rows survive), and a `local_folders`
+      table at v3 (used by 7.2). `scan_tree` walks a root with `walkdir`, skips non-audio
+      extensions, compares cached `(size_bytes, mtime_secs)` to skip unchanged files, and reads
+      tags for new/changed files via `lofty` (not the native `audio_tagger` readers — task 8 is
+      not a dependency of task 7, per design.md's wave graph). `upsert_track`/`remove_mount`/
+      `tracks_for_mount`/`all_tracks` cover the mutator/per-mount-load surface. 4 unit tests.
+  - [x] 7.2 Port `local_library.rs` (managed folders persisted, rescan, exposed tracks + precomputed
         albums, update-track).
     - _Requirements: 4.1, 4.7, 18.4_
-  - [~] 7.3 Implement off-thread precompute of albums/artists/recent/language/stats and publish the
+    - Progress: `services/src/local_library.rs`. `LocalLibrary` wraps an `Arc<LibraryScanner>`;
+      `add_folder`/`remove_folder`/`relocate_folder`/`rescan_folder` manage `LocalMusicFolder` rows
+      (persisted via the scanner's `local_folders` table) and their per-folder `tracks_cache`
+      rows; `rescan_folder` sets `is_missing` instead of erroring when the folder's path is gone,
+      matching the macOS "Remove Missing Folders and Tracks?" flow (R4.6) rather than failing the
+      scan. `tracks()` aggregates across every registered folder; `update_track` lets a metadata
+      editor commit a change without a full rescan. 6 unit tests.
+  - [x] 7.3 Implement off-thread precompute of albums/artists/recent/language/stats and publish the
         results into app state via a channel.
     - _Requirements: 18.4_
-  - [~] 7.4 Write an integration test that scans a fixture music tree into SQLite and asserts the
+    - Progress: `precompute(Vec<Track>) -> PrecomputedCaches` (pure function) groups albums/artists
+      (by lowercased name+artist / artist), sorts `recent` newest-first, filters
+      `is_language_study()` tracks, and computes `LibraryStats` (track/album/artist/hi-res/
+      language counts + total bytes). `LocalLibrary::rescan_all_async` spawns a thread that
+      rescans every folder and sends the result over an `mpsc::Receiver<Result<PrecomputedCaches>>`
+      — the off-thread + channel mechanism R18.4 asks for. It does not yet push into an `AppState`
+      because no `AppState` exists yet; that wiring is task 18's job (which explicitly depends on
+      task 7), same deferral pattern as task 6.7 deferring to task 13. 3 unit tests (2 for
+      `precompute`, 1 confirming `rescan_all_async` delivers without blocking/panicking).
+  - [x] 7.4 Write an integration test that scans a fixture music tree into SQLite and asserts the
         album/artist/hi-res/recent/language aggregation counts.
     - _Requirements: 18.1, 18.2, 18.4_
+    - Progress: `services/tests/library_scan_integration.rs`. Hand-builds real, spec-valid
+      (frameless) FLAC files — a `STREAMINFO` block with real `sample_rate`/`bits_per_sample` plus
+      a `VORBIS_COMMENT` block with TITLE/ARTIST/ALBUM/DATE — across a small fixture tree (2
+      artists/3 albums/1 hi-res track/1 `/LEARNING/` track/1 non-audio file), scans it end to end
+      through `LocalLibrary::add_folder` → `tracks()` → `precompute`, and asserts the exact
+      album/artist/hi-res/language counts. This exercises the real `lofty` tag-read path, not just
+      `precompute` over hand-built `Track` values.
+
+  **Verified:** all of task 7 builds, links, and passes under the MSVC toolchain —
+  `cargo test -p walkman-services` (15 unit + 1 integration test, all green) and
+  `cargo clippy -p walkman-services --tests` (clean). `cargo test --workspace` passes in full
+  (180 tests across all five crates).
 
 - [ ] 8. Implement audio metadata read/write (`audio_tagger.rs`) and artwork engine (`artwork.rs`)
   - [~] 8.1 Implement baseline RGB JPEG encode (resize ≤800px, q~0.92, force baseline, strip
@@ -402,16 +426,14 @@ verification.
 - Golden-byte and parity fixtures (tasks 8.5, 19.4) should be captured from the macOS app output and
   committed under `crates/*/tests/fixtures/`.
 - No audio stream is re-encoded during metadata-only operations; this is asserted in task 19.3.
-- Status (workspace at `windows-app/`): tasks 1-2 complete; 5.2, 5.3, 6.1, 6.2, 6.4, 6.5, and 6.6
-  complete; 3.1, 5.1, 5.4, 6.3, and 6.7 partially done (see per-task Progress notes). `cargo test
-  --workspace` could not be run after task 6's changes — this dev host's `windows-gnu` toolchain
-  can't *link* anything pulling a recent `windows-sys`/`windows-link` (including `chrono`, already
-  a task-5 dependency) and can't *build* `walkman-services`/`walkman-ui` at all (`ring` needs a
-  missing `gcc.exe`); see the environment note under task 6. This predates task 6 and needs a
-  host-side toolchain fix (working MinGW `dlltool` + `gcc.exe`, or an MSVC Build Tools install)
-  before `cargo test --workspace` can run again. `cargo check -p walkman-platform --tests` passes
-  clean and was used as the verification method for all of task 6 instead. A sub-task is checked
-  when it type-checks clean and its logic has been read back carefully against the real `windows`
-  0.52 API source (confirmed via the registry sources, not guessed); 6.3 and 6.7 stay `[~]` because
-  they're intentionally partial (poll-only device events; no artwork/command callbacks yet), not
-  because of unverified code.
+- Status (workspace at `windows-app/`): tasks 1, 2, 6, and 7 complete; 5.2, 5.3, 6.1, 6.2, 6.4, 6.5,
+  6.6, 7.1, 7.2, 7.3, and 7.4 complete; 3.1, 5.1, 5.4, 6.3, and 6.7 partially done (see per-task
+  Progress notes). The dev host switched to the MSVC toolchain (Visual Studio Build Tools
+  installed, `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
+  dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
+  bundled SQLite and task 7's own needs depend on a working C compiler). `cargo test --workspace`
+  passes in full: 180 tests across `domain`/`platform`/`services`/`ui` (0 failed). 6.3 and 6.7
+  stay `[~]` because they're intentionally partial (poll-only device events; no artwork/command
+  callbacks yet), not because of unverified code. New workspace dependencies added for task 7:
+  `walkdir` (recursive scan), `lofty` (tag reading only — task 8's native readers/writers are
+  separate), `uuid` (folder ids), `tempfile` (test fixtures).

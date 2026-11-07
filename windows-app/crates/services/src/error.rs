@@ -31,3 +31,9 @@ pub enum AppError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 }
+
+impl From<rusqlite::Error> for AppError {
+    fn from(e: rusqlite::Error) -> Self {
+        AppError::Database(e.to_string())
+    }
+}
