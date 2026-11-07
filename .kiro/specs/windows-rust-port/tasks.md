@@ -596,9 +596,21 @@ verification.
       code (not just its tests) needs it. 4 new tests; wired into `detail.rs`'s
       `NavTab::RecentlyAdded` arm and a new `AppState::recently_added_view` field (reading the
       same `walkman_tracks` `library_view` does).
-  - [~] 14.4 Implement `AlbumsView`: cover grid, 7 sort options, format filter chips, expandable
+  - [x] 14.4 Implement `AlbumsView`: cover grid, 7 sort options, format filter chips, expandable
         search, album detail drill-down, album+track context menus, batch lyrics.
     - _Requirements: 5.3_
+    - Progress: `ui/src/views/albums.rs`. `group_into_albums` groups tracks into
+      `walkman_domain::models::AlbumItem`s (reusing the real domain model's `id()`/
+      `is_hi_res`/`primary_format()` rather than inventing a parallel grouping type), all 7
+      sort options, a format filter chip row built from whatever formats are actually present
+      (`distinct_formats`) plus an independent Hi-Res toggle chip, an expandable search bar
+      (collapsed by default, a button swaps it for a text field), and album-detail drill-down
+      (double-click or context menu "Open Album" swaps the grid for a track list with its own
+      context menu + a "Back to Albums" button). Grid tiles are placeholder glass tiles (an
+      initial-letter monogram) rather than real cover art — bridging `cover_art_cache.rs`'s
+      (task 12.3) bytes to an egui texture is a separate concern this task doesn't own. 7 new
+      tests, including a headless-frame render of both the grid and the drill-down state; wired
+      into `detail.rs`'s `NavTab::Albums` arm and a new `AppState::albums_view` field.
   - [~] 14.5 Implement `ArtistsView`: artist grid with avatars (cache-backed), search, drill-down,
         context menus.
     - _Requirements: 5.4_
