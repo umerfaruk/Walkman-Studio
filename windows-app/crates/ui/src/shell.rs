@@ -167,6 +167,8 @@ pub struct AppState {
     /// `AlbumsView`'s own UI state (sort/format filter/Hi-Res toggle/search/drill-down/
     /// selection/emitted commands). Reads from the same `walkman_tracks`.
     pub albums_view: crate::views::albums::AlbumsViewState,
+    /// `ArtistsView`'s own UI state (search/drill-down/emitted commands).
+    pub artists_view: crate::views::artists::ArtistsViewState,
 }
 
 impl Default for AppState {
@@ -221,6 +223,7 @@ impl Default for AppState {
             library_view: crate::views::library::LibraryViewState::default(),
             recently_added_view: crate::views::recently_added::RecentlyAddedViewState::default(),
             albums_view: crate::views::albums::AlbumsViewState::default(),
+            artists_view: crate::views::artists::ArtistsViewState::default(),
         }
     }
 }

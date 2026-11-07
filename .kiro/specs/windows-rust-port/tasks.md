@@ -611,9 +611,20 @@ verification.
       (task 12.3) bytes to an egui texture is a separate concern this task doesn't own. 7 new
       tests, including a headless-frame render of both the grid and the drill-down state; wired
       into `detail.rs`'s `NavTab::Albums` arm and a new `AppState::albums_view` field.
-  - [~] 14.5 Implement `ArtistsView`: artist grid with avatars (cache-backed), search, drill-down,
+  - [x] 14.5 Implement `ArtistsView`: artist grid with avatars (cache-backed), search, drill-down,
         context menus.
     - _Requirements: 5.4_
+    - Progress: `ui/src/views/artists.rs`. `group_into_artists` groups into real
+      `walkman_domain::models::ArtistItem`s, reusing `albums::group_into_albums` per-artist so
+      each artist's own album list is the same real grouping 14.4 already built, not a
+      duplicate. Drill-down is the full artist → albums → tracks chain R5.4 asks for
+      ("album/track drill-down"), modeled as an explicit `ArtistDrillDown` enum (`Grid`/
+      `Albums`/`Tracks`) rather than a stack, since this view never needs more than one level of
+      "back" at a time. Avatars are placeholder initial-monogram circles — bridging
+      `artist_art_cache.rs`'s (task 12.3) cache-backed bytes to an egui texture is a separate
+      concern this task doesn't own, same caveat as 14.4's cover tiles. 3 new tests, including a
+      headless-frame render at all three drill-down levels; wired into `detail.rs`'s
+      `NavTab::Artists` arm and a new `AppState::artists_view` field.
   - [~] 14.6 Implement `HiResAudioView`: view modes (Tracks/Albums/Artists), track + album sort
         options, format/quality filter chips, search, context menus, batch lyrics.
     - _Requirements: 5.5_
