@@ -100,8 +100,15 @@ pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
         NavTab::LanguageStudy => {
             crate::views::language_study::render(ui, &state.walkman_tracks, &mut state.language_study_view);
         }
-        NavTab::Overview
-        | NavTab::SenseMe
+        NavTab::Overview => {
+            crate::views::device_overview::render(
+                ui,
+                &state.devices,
+                state.device_quick_stats,
+                &mut state.device_overview_view,
+            );
+        }
+        NavTab::SenseMe
         | NavTab::Playlists
         | NavTab::Duplicates
         | NavTab::Transfer

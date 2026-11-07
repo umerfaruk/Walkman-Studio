@@ -174,6 +174,15 @@ pub struct AppState {
     pub hi_res_view: crate::views::hi_res::HiResViewState,
     /// `LanguageStudyView`'s own UI state (display mode/sort/selection/emitted commands).
     pub language_study_view: crate::views::language_study::LanguageStudyViewState,
+
+    // --- Device Overview data + state (task 14.8) ---
+    /// Every currently-connected Walkman device. Empty until task 18 wires real USB/volume
+    /// detection in (task 9).
+    pub devices: Vec<walkman_domain::models::WalkmanDevice>,
+    /// Quick stats (albums/artists/hi-res) for the active device's library.
+    pub device_quick_stats: crate::views::device_overview::DeviceQuickStats,
+    /// `DeviceOverviewView`'s own UI state (selected device/MTP help sheet/emitted commands).
+    pub device_overview_view: crate::views::device_overview::DeviceOverviewViewState,
 }
 
 impl Default for AppState {
@@ -231,6 +240,10 @@ impl Default for AppState {
             artists_view: crate::views::artists::ArtistsViewState::default(),
             hi_res_view: crate::views::hi_res::HiResViewState::default(),
             language_study_view: crate::views::language_study::LanguageStudyViewState::default(),
+
+            devices: Vec::new(),
+            device_quick_stats: crate::views::device_overview::DeviceQuickStats::default(),
+            device_overview_view: crate::views::device_overview::DeviceOverviewViewState::default(),
         }
     }
 }

@@ -535,7 +535,7 @@ verification.
     playing and confirming `poll()` auto-advances; skipped gracefully (not failed) if a host has
     no audio output device, since that's an environment property this code doesn't control.
 
-- [ ] 14. Build the Local Library and Walkman library views
+- [x] 14. Build the Local Library and Walkman library views
   - [x] 14.1 Implement `LocalLibraryView`: display modes (Songs/Albums/Artists/Recently Added/
         Folders), the 8 sort options, search, track/folder context menus (incl. Relocate Folder…),
         DirectTransfer sheet, format-warning + removal confirmation dialogs; Manage Local Folders
@@ -652,10 +652,26 @@ verification.
       pairing, and this mirrors 14.1's own Folders mode in spirit. 4 new tests, including a
       headless-frame render across all 5 display modes; wired into `detail.rs`'s
       `NavTab::LanguageStudy` arm and a new `AppState::language_study_view` field.
-  - [~] 14.8 Implement `DeviceOverviewView`: model image, specs, per-drive storage gauges, quick
+  - [x] 14.8 Implement `DeviceOverviewView`: model image, specs, per-drive storage gauges, quick
         stats, Refresh/Eject, multi-device switcher; and the Android MTP help sheet + custom-folder
         bridge.
     - _Requirements: 3.5, 3.7_
+    - Progress: `ui/src/views/device_overview.rs`. Renders a "No Walkman Connected" placeholder
+      when `devices` is empty; otherwise a multi-device switcher (shown only when there's more
+      than one, matching `sidebar.rs`'s own `DeviceSectionMode` convention) over the real
+      `WalkmanDevice`/`WalkmanDeviceInfo`/`WalkmanDrive` domain models — specs (series/OS
+      family/firmware/resolution/capacity), per-drive `theme::widgets::StorageGauge`s (reusing
+      the existing gauge widget, not a new one), quick stats (album/artist/hi-res counts,
+      supplied by the caller via a `DeviceQuickStats` parameter since the real numbers come from
+      the task 7.3/18 precomputed caches), and Refresh/Eject buttons (Eject targets the
+      internal drive's mount point, falling back to the first drive). An Android device
+      (`device_info.is_android()`) shows the MTP banner leading to the help sheet + a
+      `PickCustomFolder` command for R3.7's custom-folder bridge (the actual folder picker is
+      `platform::FileDialogs`, task 6.6, invoked by whoever drains this view's commands). No
+      real device model image is wired up yet — that needs a bundled asset keyed by
+      `specific_model`, a packaging concern (task 19.1); the header shows a placeholder glyph
+      tile instead. 5 new tests; wired into `detail.rs`'s `NavTab::Overview` arm and new
+      `AppState::devices`/`device_quick_stats`/`device_overview_view` fields.
 
 - [ ] 15. Build playback UI: now-playing bar, fullscreen player, SensMe channels
   - [~] 15.1 Implement `TrackPreviewBar` bound to the player (artwork, title/artist, transport,
@@ -781,27 +797,36 @@ verification.
 - Golden-byte and parity fixtures (tasks 8.5, 19.4) should be captured from the macOS app output and
   committed under `crates/*/tests/fixtures/`.
 - No audio stream is re-encoded during metadata-only operations; this is asserted in task 19.3.
-- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, 11, 12, and 13 complete; 5.2,
-  5.3, 6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3, 9.4,
-  10.1, 10.2, 10.3, 11.1, 11.2, 11.3, 12.1, 12.2, and 12.3 complete; 3.1, 5.1, 5.4, 6.3, and 6.7
-  partially done (see per-task Progress notes). The dev host switched to the MSVC toolchain
-  (Visual Studio Build Tools installed, `rustup default stable-x86_64-pc-windows-msvc`), which
-  resolved the `windows-gnu` dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue
-  together (both `rusqlite`'s bundled SQLite and task 7/8's own needs depend on a working C
-  compiler). `cargo test --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0
-  failed, 323 tests) — including task 13's player tests against this host's *real* audio output
-  device (not mocked). 6.3 and 6.7 stay `[~]` because they're intentionally partial (poll-only
-  device events; no artwork/command callbacks yet); task 8.5 is checked off despite a known,
-  documented gap (no real macOS-app-captured golden-byte fixtures exist in this repo, so the
-  writers are round-trip-tested, not byte-diffed against the Swift app's own output) rather than
-  marked unverified, since everything that *can* be tested without those fixtures is; task 9's
+- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, and 14 complete;
+  5.2, 5.3, 6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3,
+  9.4, 10.1, 10.2, 10.3, 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, and every 14.x subtask complete;
+  3.1, 5.1, 5.4, 6.3, and 6.7 partially done (see per-task Progress notes). The dev host switched
+  to the MSVC toolchain (Visual Studio Build Tools installed,
+  `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
+  dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
+  bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo test
+  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 368 tests) —
+  including task 13's player tests against this host's *real* audio output device (not mocked)
+  and task 14's headless-egui-frame render tests across every view/mode/sheet combination. 6.3
+  and 6.7 stay `[~]` because they're intentionally partial (poll-only device events; no
+  artwork/command callbacks yet); task 8.5 is checked off despite a known, documented gap (no
+  real macOS-app-captured golden-byte fixtures exist in this repo, so the writers are
+  round-trip-tested, not byte-diffed against the Swift app's own output) rather than marked
+  unverified, since everything that *can* be tested without those fixtures is; task 9's
   `detect_devices` device/drive-grouping heuristic, task 10.1's un-exercised-against-a-real-
   `ffmpeg.exe` transcode path, task 11.2's per-file (not `aes-gcm`'s chunked `stream`
-  construction) interpretation of "streamed" encryption, and task 12's un-exercised-against-the-
-  live-network LRCLIB/Lyrics.ovh/iTunes/Deezer calls (and `trim_cut.rs`'s `ffmpeg` paths) have
-  similarly documented limitations (see their own Progress notes) rather than being unverified.
-  New workspace dependencies: task 7 added `walkdir` (recursive scan), `lofty` (tag reading only
-  — task 8's native readers/writers are separate), `uuid` (folder ids), `tempfile` (test
-  fixtures); task 11 added `pbkdf2`, `hmac`, `sha2`, `aes-gcm` (encryption); task 12 added
-  `symphonia` (waveform PCM decode); task 13 added `rodio` (playback engine); tasks 8, 9, and 10
-  added none.
+  construction) interpretation of "streamed" encryption, task 12's un-exercised-against-the-
+  live-network LRCLIB/Lyrics.ovh/iTunes/Deezer calls (and `trim_cut.rs`'s `ffmpeg` paths), and
+  task 14's placeholder cover-art/avatar/device-image tiles (real texture loading from the
+  task-12.3 art caches is a separate concern no task 14 subtask owns) have similarly documented
+  limitations (see their own Progress notes) rather than being unverified. New workspace
+  dependencies: task 7 added `walkdir` (recursive scan), `lofty` (tag reading only — task 8's
+  native readers/writers are separate), `uuid` (folder ids), `tempfile` (test fixtures); task 11
+  added `pbkdf2`, `hmac`, `sha2`, `aes-gcm` (encryption); task 12 added `symphonia` (waveform PCM
+  decode); task 13 added `rodio` (playback engine); task 14 added none (it builds entirely on
+  the existing `theme`/`shell`/`now_playing` vocabulary plus a new shared `ui/src/selection.rs`);
+  tasks 8, 9, and 10 added none either. Task 14 also established `ui/src/views/` (one module per
+  nav section, per design.md) and the house style every subtask followed: each view owns its own
+  `*ViewState` struct (not bolted onto `AppState` beyond a couple of plain, currently-empty data
+  fields + the view state itself) and emits a `*Command` enum into `state.commands` for task 18
+  to drain against real `walkman_services` calls — none of those commands are consumed yet.
