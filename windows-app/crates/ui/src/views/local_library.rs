@@ -224,7 +224,7 @@ pub fn render(ui: &mut egui::Ui, tracks: &[Track], folders: &[LocalMusicFolder],
         LocalDisplayMode::Folders => render_folders_list(ui, folders, state),
     }
 
-    render_sheet(ui, state);
+    render_sheet(ui, folders, state);
 }
 
 fn render_mode_and_search_bar(ui: &mut egui::Ui, state: &mut LocalLibraryViewState) {
@@ -476,17 +476,55 @@ fn modal(ctx: &egui::Context, id: &str, size: egui::Vec2, content: impl FnOnce(&
     });
 }
 
-fn render_sheet(ui: &mut egui::Ui, state: &mut LocalLibraryViewState) {
+fn render_sheet(ui: &mut egui::Ui, folders: &[LocalMusicFolder], state: &mut LocalLibraryViewState) {
     let ctx = ui.ctx().clone();
     match state.sheet.clone() {
         LocalLibrarySheet::None => {}
         LocalLibrarySheet::ManageFolders => {
             modal(&ctx, "manage_local_folders_sheet", egui::vec2(560.0, 420.0), |ui| {
-                ui.label(egui::RichText::new("Manage Local Folders").font(font::title2()).color(color::SILVER_LIGHT));
-                ui.add_space(12.0);
-                if ui.add(button::Button::new("Add Folder\u{2026}", button::Variant::Prominent)).clicked() {
-                    state.commands.push(LocalLibraryCommand::AddFolder);
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("Manage Local Folders").font(font::title2()).color(color::SILVER_LIGHT));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.add(button::Button::new("Add Folder\u{2026}", button::Variant::Prominent)).clicked() {
+                            state.commands.push(LocalLibraryCommand::AddFolder);
+                        }
+                    });
+                });
+                ui.add_space(10.0);
+
+                if folders.is_empty() {
+                    ui.label(egui::RichText::new("No folders registered yet").font(font::callout()).color(color::SILVER_MUTED));
+                } else {
+                    egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
+                        for folder in folders {
+                            ui.horizontal(|ui| {
+                                ui.vertical(|ui| {
+                                    ui.label(egui::RichText::new(&folder.display_name).font(font::body_medium()).color(color::SILVER_LIGHT));
+                                    let status = if folder.is_missing {
+                                        "Missing".to_owned()
+                                    } else {
+                                        format!("{} tracks", folder.track_count)
+                                    };
+                                    ui.label(egui::RichText::new(status).font(font::caption()).color(color::SILVER_MUTED));
+                                });
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                    if ui.add(button::Button::new("Remove", button::Variant::Destructive)).clicked() {
+                                        state.sheet = LocalLibrarySheet::RemoveFolderConfirm {
+                                            folder_id: folder.id.clone(),
+                                            folder_name: folder.display_name.clone(),
+                                        };
+                                    }
+                                    ui.add_space(6.0);
+                                    if ui.add(button::Button::new("Rescan", button::Variant::Glass)).clicked() {
+                                        state.commands.push(LocalLibraryCommand::RescanFolder(folder.id.clone()));
+                                    }
+                                });
+                            });
+                            ui.add_space(4.0);
+                        }
+                    });
                 }
+
                 ui.add_space(12.0);
                 if ui.add(button::Button::new("Close", button::Variant::Glass)).clicked() {
                     state.sheet = LocalLibrarySheet::None;

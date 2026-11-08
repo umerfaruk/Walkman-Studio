@@ -66,6 +66,13 @@ pub struct AppState {
     /// as `trim_cut_sheet` (task 18 drives `lyrics::fetch_batch_async` and streams results
     /// in, rather than this crate auto-opening it blind).
     pub batch_lyrics_sheet: crate::sheets::batch_lyrics::BatchLyricsGeneratorState,
+    /// `CleanEjectSheet`'s own UI state (task 17.7), opened from the toolbar's Eject action
+    /// (task 18 wires the trigger; this sheet only renders what it's told).
+    pub clean_eject_sheet: crate::sheets::clean_eject::CleanEjectSheetState,
+    /// `AboutWalkmanStudioView`'s own UI state (task 17.7), opened by
+    /// [`AppState::about_requested`] (the sidebar button / menu command already set it in
+    /// task 4.2/4.3).
+    pub about_sheet: crate::sheets::about::AboutSheetState,
 
     // --- Transfer & Convert queue data + state (task 17.1) ---
     /// Every queued transfer item. Empty until task 18 wires the real `TransferQueue` in.
@@ -273,6 +280,8 @@ impl Default for AppState {
             transfer_item_editor: crate::sheets::transfer_item::TransferItemEditorState::default(),
             trim_cut_sheet: crate::sheets::trim_cut::TrimCutSheetState::default(),
             batch_lyrics_sheet: crate::sheets::batch_lyrics::BatchLyricsGeneratorState::default(),
+            clean_eject_sheet: crate::sheets::clean_eject::CleanEjectSheetState::default(),
+            about_sheet: crate::sheets::about::AboutSheetState::default(),
             transfer_queue_items: Vec::new(),
             transfer_queue_view: crate::views::transfer_queue::TransferQueueViewState::default(),
             duplicates_view: crate::views::duplicates::DuplicatesViewState::default(),
@@ -479,6 +488,17 @@ pub fn layout_shell(ctx: &egui::Context, state: &mut AppState) {
     crate::sheets::album_metadata::render(ctx, &mut state.album_editor);
     crate::sheets::transfer_item::render(ctx, &mut state.transfer_item_editor);
     crate::sheets::trim_cut::render(ctx, &mut state.trim_cut_sheet);
+
+    // --- About sheet (task 17.7) ---
+    //
+    // Consumes the one-shot flag the sidebar button / menu command raised (task 4.2/4.3);
+    // opening it is pure UI state, same reasoning as the inspector's `Edit` drain (16.1).
+    if state.about_requested {
+        state.about_requested = false;
+        state.about_sheet.open();
+    }
+    crate::sheets::about::render(ctx, &state.devices, &mut state.about_sheet);
+    crate::sheets::clean_eject::render(ctx, &mut state.clean_eject_sheet);
 
     // The batch lyrics generator sheet is shared across every view that can launch it
     // (R15.2); until task 18 wires per-view selection into a single hand-off point, the

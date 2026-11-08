@@ -806,7 +806,7 @@ verification.
       `AppState::transfer_item_editor` and rendered from `shell.rs`, opened by 17.1's
       `OpenEditor` command.
 
-- [ ] 17. Build tool views and sheets
+- [x] 17. Build tool views and sheets
   - [x] 17.1 Implement `TransferQueueView`: queue list with status, expandable rows, per-item editor,
         preview context menu, duplicate-import guard sheet (Skip/Overwrite/Keep Both), clear-queue
         confirm, `TransferSyncSheet` progress.
@@ -946,10 +946,30 @@ verification.
       tests (every scope's resolution, speed/ETA at their edge cases, metric filtering, the
       open-resets-stale-results guarantee, and a headless-frame render across scope-picker/
       choose-specific/running/finished states); wired into `AppState::batch_lyrics_sheet`.
-  - [~] 17.7 Implement `CleanEjectSheet`, `AboutWalkmanStudioView` (hardware / supported DAPs /
+  - [x] 17.7 Implement `CleanEjectSheet`, `AboutWalkmanStudioView` (hardware / supported DAPs /
         credits tabs), `ManageLocalFoldersSheet`, `AndroidWalkmanMtpHelpSheet`, and
         `DuplicateImportGuardSheet`.
     - _Requirements: 16.3, 3.7, 4.1_
+    - Progress: `AndroidWalkmanMtpHelpSheet` and `DuplicateImportGuardSheet` already existed
+      (tasks 14.8 and 17.1 respectively — `device_overview.rs`'s MTP help sheet and
+      `transfer_queue.rs`'s `TransferQueueSheet::DuplicateGuard`), so this subtask's new work
+      is the other 3: new `ui/src/sheets/clean_eject.rs` (confirm → running spinner → result/
+      error, over the real `clean_eject::clean_and_eject`/`CleanAndEjectResult` from task 9.4
+      — the actual sequence needs a real `Ejector`, task 6.5, so this sheet only emits
+      `StartCleanAndEject` and renders whatever result task 18 writes back, same deferral as
+      `trim_cut_sheet`/`batch_lyrics_sheet`) and new `ui/src/sheets/about.rs` (Hardware/
+      Supported DAPs/Credits tabs — Hardware reuses the same `WalkmanDeviceInfo` fields
+      `DeviceOverviewView`, task 14.8, already shows; Supported DAPs iterates the real
+      `device_detector::CATALOG`, task 9.1's hardcoded Sony model table, not a second list),
+      opened by the existing `AppState::about_requested` flag the sidebar/menu already set in
+      task 4.2/4.3. Also fleshed out task 14.1's `ManageFolders` sheet, which had been a
+      stub (only an "Add Folder…" button) despite the task 14.1 Progress note's "Manage
+      Local Folders sheet" claim — it now lists every registered folder with its own Rescan/
+      Remove actions (the latter already routing through the existing `RemoveFolderConfirm`
+      sheet state), matching the same management surface `render_folders_list`'s Folders
+      display mode already has. 4 new tests across the 2 new sheets (open/reset lifecycle +
+      headless-frame renders across every state); wired into `AppState::clean_eject_sheet`/
+      `about_sheet`, both rendered from `shell.rs`.
 
 - [~] 18. Wire real-time device events and library lifecycle into the shell
   - Subscribe to `DeviceEvents` + periodic refresh to auto-detect attach/detach; trigger scans and
@@ -1020,16 +1040,16 @@ verification.
 - Golden-byte and parity fixtures (tasks 8.5, 19.4) should be captured from the macOS app output and
   committed under `crates/*/tests/fixtures/`.
 - No audio stream is re-encoded during metadata-only operations; this is asserted in task 19.3.
-- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, and 16
-  complete; 5.2, 5.3, 6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1,
-  9.2, 9.3, 9.4, 10.1, 10.2, 10.3, 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, and every 14.x/15.x/16.x
-  subtask complete;
+- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, and
+  17 complete; 5.2, 5.3, 6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5,
+  9.1, 9.2, 9.3, 9.4, 10.1, 10.2, 10.3, 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, and every
+  14.x/15.x/16.x/17.x subtask complete;
   3.1, 5.1, 5.4, 6.3, and 6.7 partially done (see per-task Progress notes). The dev host switched
   to the MSVC toolchain (Visual Studio Build Tools installed,
   `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
   dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
   bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo test
-  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 445 tests) —
+  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 449 tests) —
   including task 13's player tests against this host's *real* audio output device (not mocked),
   task 15.1's test that the now-playing bar mirrors that same real, bound `Player`, and task
   14/15/16's headless-egui-frame render tests across every view/mode/sheet/carousel-position/
