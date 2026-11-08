@@ -10,7 +10,7 @@
 use iced::widget::{button, column, container, row, text, Row, Space};
 use iced::{Border, Element, Length, Padding};
 
-use walkman_domain::models::{LocalMusicFolder, Track, TransferItem, WalkmanDevice};
+use walkman_domain::models::{LocalMusicFolder, Playlist, Track, TransferItem, WalkmanDevice};
 
 use crate::iced_ui::theme::{color, font, sizing};
 use crate::iced_ui::views::albums as albums_view;
@@ -22,6 +22,7 @@ use crate::iced_ui::views::hi_res as hi_res_view;
 use crate::iced_ui::views::language_study as language_study_view;
 use crate::iced_ui::views::library as library_view;
 use crate::iced_ui::views::local_library as local_library_view;
+use crate::iced_ui::views::playlists as playlists_view;
 use crate::iced_ui::views::recently_added as recently_added_view;
 use crate::iced_ui::views::senseme as senseme_view;
 use crate::iced_ui::views::transfer_queue as transfer_queue_view;
@@ -35,6 +36,7 @@ use crate::views::hi_res::HiResViewState;
 use crate::views::language_study::LanguageStudyViewState;
 use crate::views::library::LibraryViewState;
 use crate::views::local_library::LocalLibraryViewState;
+use crate::views::playlists::PlaylistsViewState;
 use crate::views::recently_added::RecentlyAddedViewState;
 use crate::views::senseme::SenseMeViewState;
 use crate::views::transfer_queue::TransferQueueViewState;
@@ -66,6 +68,8 @@ pub struct AppState {
     pub transfer_queue_items: Vec<TransferItem>,
     pub transfer_queue_view: TransferQueueViewState,
     pub backup_restore_view: BackupRestoreViewState,
+    pub playlists: Vec<Playlist>,
+    pub playlists_view: PlaylistsViewState,
 }
 
 impl Default for AppState {
@@ -92,6 +96,8 @@ impl Default for AppState {
             transfer_queue_items: Vec::new(),
             transfer_queue_view: TransferQueueViewState::default(),
             backup_restore_view: BackupRestoreViewState::default(),
+            playlists: Vec::new(),
+            playlists_view: PlaylistsViewState::default(),
         }
     }
 }
@@ -112,6 +118,7 @@ pub enum Message {
     Duplicates(duplicates_view::Message),
     TransferQueue(transfer_queue_view::Message),
     BackupRestore(backup_restore_view::Message),
+    Playlists(playlists_view::Message),
 }
 
 pub fn update(state: &mut AppState, message: Message) {
@@ -130,6 +137,7 @@ pub fn update(state: &mut AppState, message: Message) {
         Message::Duplicates(m) => duplicates_view::update(&mut state.duplicates_view, m),
         Message::TransferQueue(m) => transfer_queue_view::update(&state.transfer_queue_items, &mut state.transfer_queue_view, m),
         Message::BackupRestore(m) => backup_restore_view::update(&state.walkman_tracks, &mut state.backup_restore_view, m),
+        Message::Playlists(m) => playlists_view::update(&state.playlists, &mut state.playlists_view, m),
     }
 }
 
@@ -282,6 +290,9 @@ fn detail_pane(state: &AppState) -> Element<'_, Message> {
     }
     if state.nav_tab == NavTab::BackupRestore {
         return backup_restore_view::view(&state.walkman_tracks, &state.backup_restore_view).map(Message::BackupRestore);
+    }
+    if state.nav_tab == NavTab::Playlists {
+        return playlists_view::view(&state.playlists, &state.playlists_view).map(Message::Playlists);
     }
 
     container(column![

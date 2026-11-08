@@ -112,7 +112,7 @@ pub fn render(ui: &mut egui::Ui, playlists: &[Playlist], all_tracks: &[Track], s
 /// Re-seeds `active_tracks` from the real `Playlist` whenever the selection changes to a
 /// different playlist (or the selection is cleared), so edits made via the batch bar aren't
 /// clobbered on every frame but a freshly-opened playlist always starts from its real list.
-fn sync_active_tracks(playlists: &[Playlist], state: &mut PlaylistsViewState) {
+pub fn sync_active_tracks(playlists: &[Playlist], state: &mut PlaylistsViewState) {
     if state.loaded_for == state.selected_playlist_id {
         return;
     }
