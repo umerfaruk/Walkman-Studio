@@ -28,6 +28,7 @@ use crate::iced_ui::views::senseme as senseme_view;
 use crate::iced_ui::views::transfer_queue as transfer_queue_view;
 use crate::iced_ui::sheets::about as about_sheet_view;
 use crate::iced_ui::sheets::album_metadata as album_metadata_view;
+use crate::iced_ui::sheets::batch_lyrics as batch_lyrics_view;
 use crate::iced_ui::sheets::clean_eject as clean_eject_view;
 use crate::iced_ui::sheets::lyrics_editor as lyrics_editor_view;
 use crate::iced_ui::sheets::song_metadata as song_metadata_view;
@@ -44,6 +45,7 @@ use crate::views::library::LibraryViewState;
 use crate::views::local_library::LocalLibraryViewState;
 use crate::sheets::about::AboutSheetState;
 use crate::sheets::album_metadata::AlbumEditorState;
+use crate::sheets::batch_lyrics::BatchLyricsGeneratorState;
 use crate::sheets::clean_eject::CleanEjectSheetState;
 use crate::sheets::lyrics_editor::LyricsEditorState;
 use crate::sheets::song_metadata::SongEditorState;
@@ -91,6 +93,7 @@ pub struct AppState {
     pub transfer_item_editor: TransferItemEditorState,
     pub transfer_item_editor_lyrics_content: iced::widget::text_editor::Content,
     pub album_editor: AlbumEditorState,
+    pub batch_lyrics_sheet: BatchLyricsGeneratorState,
 }
 
 impl Default for AppState {
@@ -128,6 +131,7 @@ impl Default for AppState {
             transfer_item_editor: TransferItemEditorState::default(),
             transfer_item_editor_lyrics_content: iced::widget::text_editor::Content::new(),
             album_editor: AlbumEditorState::default(),
+            batch_lyrics_sheet: BatchLyricsGeneratorState::default(),
         }
     }
 }
@@ -143,6 +147,7 @@ pub enum Message {
     SongEditorSheet(song_metadata_view::Message),
     TransferItemEditorSheet(transfer_item_view::Message),
     AlbumEditorSheet(album_metadata_view::Message),
+    BatchLyricsSheet(batch_lyrics_view::Message),
     LocalLibrary(local_library_view::Message),
     RecentlyAdded(recently_added_view::Message),
     Library(library_view::Message),
@@ -175,6 +180,7 @@ pub fn update(state: &mut AppState, message: Message) {
             transfer_item_view::update(&mut state.transfer_item_editor, &mut state.transfer_item_editor_lyrics_content, m)
         }
         Message::AlbumEditorSheet(m) => album_metadata_view::update(&mut state.album_editor, m),
+        Message::BatchLyricsSheet(m) => batch_lyrics_view::update(&mut state.batch_lyrics_sheet, m),
         Message::LocalLibrary(m) => local_library_view::update(&mut state.local_library_view, m),
         Message::RecentlyAdded(m) => recently_added_view::update(&mut state.recently_added_view, m),
         Message::Library(m) => library_view::update(&mut state.library_view, m),
@@ -234,6 +240,9 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
     }
     if let Some(sheet) = album_metadata_view::view(&state.album_editor) {
         layers = layers.push(sheet.map(Message::AlbumEditorSheet));
+    }
+    if let Some(sheet) = batch_lyrics_view::view(&state.walkman_tracks, &[], &[], None, &[], &state.batch_lyrics_sheet) {
+        layers = layers.push(sheet.map(Message::BatchLyricsSheet));
     }
 
     layers.into()
