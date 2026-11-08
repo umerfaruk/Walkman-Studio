@@ -86,12 +86,12 @@ impl App {
                 self.state.walkman_connected = !devices.is_empty();
                 self.state.device_count = devices.len();
                 if devices.is_empty() {
-                    self.state.walkman_track_count = 0;
+                    self.state.walkman_tracks.clear();
                 }
                 task.map_or(Task::none(), |t| t.map(Message::Lifecycle))
             }
             Message::Lifecycle(lifecycle_iced::Message::WalkmanMountScanned(tracks)) => {
-                self.state.walkman_track_count = tracks.len();
+                self.state.walkman_tracks = tracks;
                 Task::none()
             }
         }

@@ -14,8 +14,10 @@ use walkman_domain::models::{LocalMusicFolder, Track};
 
 use crate::iced_ui::theme::{color, font, sizing};
 use crate::iced_ui::views::local_library as local_library_view;
+use crate::iced_ui::views::recently_added as recently_added_view;
 use crate::iced_ui::widgets;
 use crate::views::local_library::LocalLibraryViewState;
+use crate::views::recently_added::RecentlyAddedViewState;
 use crate::NavTab;
 
 /// Shell-level state: which section is selected, whether the inspector is open, plus the
@@ -28,10 +30,11 @@ pub struct AppState {
     pub show_inspector: bool,
     pub walkman_connected: bool,
     pub device_count: usize,
-    pub walkman_track_count: usize,
     pub local_tracks: Vec<Track>,
     pub local_folders: Vec<LocalMusicFolder>,
+    pub walkman_tracks: Vec<Track>,
     pub local_library_view: LocalLibraryViewState,
+    pub recently_added_view: RecentlyAddedViewState,
 }
 
 impl Default for AppState {
@@ -42,10 +45,11 @@ impl Default for AppState {
             show_inspector: false,
             walkman_connected: false,
             device_count: 0,
-            walkman_track_count: 0,
             local_tracks: Vec::new(),
             local_folders: Vec::new(),
+            walkman_tracks: Vec::new(),
             local_library_view: LocalLibraryViewState::default(),
+            recently_added_view: RecentlyAddedViewState::default(),
         }
     }
 }
@@ -55,6 +59,7 @@ pub enum Message {
     NavSelected(NavTab),
     ToggleInspector,
     LocalLibrary(local_library_view::Message),
+    RecentlyAdded(recently_added_view::Message),
 }
 
 pub fn update(state: &mut AppState, message: Message) {
@@ -62,6 +67,7 @@ pub fn update(state: &mut AppState, message: Message) {
         Message::NavSelected(tab) => state.nav_tab = tab,
         Message::ToggleInspector => state.show_inspector = !state.show_inspector,
         Message::LocalLibrary(m) => local_library_view::update(&mut state.local_library_view, m),
+        Message::RecentlyAdded(m) => recently_added_view::update(&mut state.recently_added_view, m),
     }
 }
 
@@ -112,7 +118,7 @@ fn sidebar(state: &AppState) -> Element<'_, Message> {
             "{} device(s) · {} local · {} on device",
             state.device_count,
             state.local_tracks.len(),
-            state.walkman_track_count
+            state.walkman_tracks.len()
         )
     } else {
         format!("No device · {} local tracks", state.local_tracks.len())
@@ -173,6 +179,10 @@ fn detail_pane(state: &AppState) -> Element<'_, Message> {
     if state.nav_tab == NavTab::LocalLibrary {
         return local_library_view::view(&state.local_tracks, &state.local_folders, &state.local_library_view)
             .map(Message::LocalLibrary);
+    }
+    if state.nav_tab == NavTab::RecentlyAdded {
+        return recently_added_view::view(&state.walkman_tracks, &state.recently_added_view)
+            .map(Message::RecentlyAdded);
     }
 
     container(column![

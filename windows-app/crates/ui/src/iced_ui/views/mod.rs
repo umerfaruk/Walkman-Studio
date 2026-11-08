@@ -5,3 +5,4 @@
 //! as an iced `view`/`update` pair. See `local_library.rs` for the pattern.
 
 pub mod local_library;
+pub mod recently_added;
