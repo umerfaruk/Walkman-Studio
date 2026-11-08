@@ -16,6 +16,7 @@ use crate::iced_ui::theme::{color, font, sizing};
 use crate::iced_ui::views::albums as albums_view;
 use crate::iced_ui::views::artists as artists_view;
 use crate::iced_ui::views::device_overview as device_overview_view;
+use crate::iced_ui::views::duplicates as duplicates_view;
 use crate::iced_ui::views::hi_res as hi_res_view;
 use crate::iced_ui::views::language_study as language_study_view;
 use crate::iced_ui::views::library as library_view;
@@ -26,6 +27,7 @@ use crate::iced_ui::widgets;
 use crate::views::albums::AlbumsViewState;
 use crate::views::artists::ArtistsViewState;
 use crate::views::device_overview::{DeviceOverviewViewState, DeviceQuickStats};
+use crate::views::duplicates::DuplicatesViewState;
 use crate::views::hi_res::HiResViewState;
 use crate::views::language_study::LanguageStudyViewState;
 use crate::views::library::LibraryViewState;
@@ -56,6 +58,7 @@ pub struct AppState {
     pub hi_res_view: HiResViewState,
     pub language_study_view: LanguageStudyViewState,
     pub senseme_view: SenseMeViewState,
+    pub duplicates_view: DuplicatesViewState,
 }
 
 impl Default for AppState {
@@ -78,6 +81,7 @@ impl Default for AppState {
             hi_res_view: HiResViewState::default(),
             language_study_view: LanguageStudyViewState::default(),
             senseme_view: SenseMeViewState::default(),
+            duplicates_view: DuplicatesViewState::default(),
         }
     }
 }
@@ -95,6 +99,7 @@ pub enum Message {
     HiRes(hi_res_view::Message),
     LanguageStudy(language_study_view::Message),
     SenseMe(senseme_view::Message),
+    Duplicates(duplicates_view::Message),
 }
 
 pub fn update(state: &mut AppState, message: Message) {
@@ -110,6 +115,7 @@ pub fn update(state: &mut AppState, message: Message) {
         Message::HiRes(m) => hi_res_view::update(&mut state.hi_res_view, m),
         Message::LanguageStudy(m) => language_study_view::update(&mut state.language_study_view, m),
         Message::SenseMe(m) => senseme_view::update(&state.walkman_tracks, &mut state.senseme_view, m),
+        Message::Duplicates(m) => duplicates_view::update(&mut state.duplicates_view, m),
     }
 }
 
@@ -253,6 +259,9 @@ fn detail_pane(state: &AppState) -> Element<'_, Message> {
     }
     if state.nav_tab == NavTab::SenseMe {
         return senseme_view::view(&state.walkman_tracks, &state.senseme_view).map(Message::SenseMe);
+    }
+    if state.nav_tab == NavTab::Duplicates {
+        return duplicates_view::view(&state.walkman_tracks, &state.duplicates_view).map(Message::Duplicates);
     }
 
     container(column![
