@@ -898,10 +898,32 @@ verification.
       headless-frame render across backup/restore/selected-filter/in-progress/encrypted
       states); wired into `detail.rs`'s `NavTab::BackupRestore` arm and a new
       `AppState::backup_restore_view` field.
-  - [~] 17.5 Implement `TrimAndCutSheet`: waveform scrubber + in/out handles, Trim/Cut modes, ms
+  - [x] 17.5 Implement `TrimAndCutSheet`: waveform scrubber + in/out handles, Trim/Cut modes, ms
         steppers (±0.1/±1/±5s) + lock-to-playhead, channel routing (swap/mono/stereo/isolate L/R/
         phase), fades + gain, preview playback.
     - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
+    - Progress: `ui/src/sheets/trim_cut.rs`, over the real `walkman_services::trim_cut::
+      {TrimCutMode, ChannelMode, TrimCutOptions}` (task 12.1) — `TrimCutSheetState::options()`
+      hands back the exact struct `apply_trim_cut`/`build_ffmpeg_args` already take, so
+      there's no separate UI-side options type to keep in sync. Added `PartialEq` to
+      `TrimCutOptions` in the services crate (it only had `Debug, Clone, Copy`) since the new
+      `TrimCutCommand::Apply` variant needed to derive it. The waveform is a single
+      click-and-drag `Sense` area: dragging anywhere moves whichever handle (start/end) is
+      closer to the pointer, via pure `ms_to_fraction`/`fraction_to_ms` pixel↔timestamp
+      mappings; the 3 ms steppers are pure `nudge_start`/`nudge_end` (each clamped so start
+      and end can never cross); "lock to playhead" is pure `lock_start_to_playhead`/
+      `lock_end_to_playhead` snaps, clamped the same way. Reuses the same `modal()` chassis
+      as every other task-16/17 sheet. "Gapless preview playback" (R14.1) only emits
+      `Preview`/`StopPreview` commands and renders whatever `playhead_ms` it's given — driving
+      a real `Player` instance from them is task 18's job, the same deferral this port used
+      for every other not-yet-service-backed UI action. 7 new tests (open/reset, the options
+      mirror, both steppers' clamping at both boundaries, the lock-to-playhead no-cross
+      guarantee, the ms/fraction round trip, and a headless-frame render across closed/with-
+      waveform/previewing states); wired into `AppState::trim_cut_sheet`, rendered from
+      `shell.rs`. Every view's own `TrimCut` command (already emitted since tasks 14.4-14.7)
+      stays queued for task 18 to populate the real waveform/duration and open this sheet —
+      unlike 16.1's inspector `Edit`, opening this one needs a real `generate_waveform` call,
+      so it isn't safe to auto-drain blind the way the inspector's was.
   - [~] 17.6 Implement `BatchLyricsGeneratorSheet`: launch from all 7 views, scopes (All in View /
         Selected / Active Item / Choose Specific… checklist with search + Select/Deselect All +
         counts + missing diagnostics), live progress/speed/ETA, metric pills, filterable results.
@@ -989,7 +1011,7 @@ verification.
   `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
   dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
   bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo test
-  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 432 tests) —
+  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 439 tests) —
   including task 13's player tests against this host's *real* audio output device (not mocked),
   task 15.1's test that the now-playing bar mirrors that same real, bound `Player`, and task
   14/15/16's headless-egui-frame render tests across every view/mode/sheet/carousel-position/

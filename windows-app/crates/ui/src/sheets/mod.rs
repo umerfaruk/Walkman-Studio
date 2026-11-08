@@ -7,6 +7,7 @@ use crate::theme::{color, font, glass};
 pub mod album_metadata;
 pub mod song_metadata;
 pub mod transfer_item;
+pub mod trim_cut;
 
 /// A centered modal: a dimmed full-screen backdrop plus a [`glass::modal_glass_chassis`]
 /// panel sized `size`. The same `Area`-based overlay pattern `now_playing.rs`'s fullscreen

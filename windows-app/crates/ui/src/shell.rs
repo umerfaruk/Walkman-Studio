@@ -56,6 +56,11 @@ pub struct AppState {
     /// `TransferQueueItemEditorSheet`'s own UI state (task 16.4), opened from a
     /// `TransferQueueView` row (task 17.1).
     pub transfer_item_editor: crate::sheets::transfer_item::TransferItemEditorState,
+    /// `TrimAndCutSheet`'s own UI state (task 17.5), opened from any view's `TrimCut`
+    /// command. Unlike the inspector's `Edit`, opening this sheet needs a real waveform
+    /// (`trim_cut::generate_waveform`) and duration, so — unlike 16.1's direct drain — task
+    /// 18 populates it and flips `open` itself rather than this crate draining it blind.
+    pub trim_cut_sheet: crate::sheets::trim_cut::TrimCutSheetState,
 
     // --- Transfer & Convert queue data + state (task 17.1) ---
     /// Every queued transfer item. Empty until task 18 wires the real `TransferQueue` in.
@@ -261,6 +266,7 @@ impl Default for AppState {
             song_editor: crate::sheets::song_metadata::SongEditorState::default(),
             album_editor: crate::sheets::album_metadata::AlbumEditorState::default(),
             transfer_item_editor: crate::sheets::transfer_item::TransferItemEditorState::default(),
+            trim_cut_sheet: crate::sheets::trim_cut::TrimCutSheetState::default(),
             transfer_queue_items: Vec::new(),
             transfer_queue_view: crate::views::transfer_queue::TransferQueueViewState::default(),
             duplicates_view: crate::views::duplicates::DuplicatesViewState::default(),
@@ -466,6 +472,7 @@ pub fn layout_shell(ctx: &egui::Context, state: &mut AppState) {
     crate::sheets::song_metadata::render(ctx, &mut state.song_editor);
     crate::sheets::album_metadata::render(ctx, &mut state.album_editor);
     crate::sheets::transfer_item::render(ctx, &mut state.transfer_item_editor);
+    crate::sheets::trim_cut::render(ctx, &mut state.trim_cut_sheet);
 }
 
 #[cfg(test)]

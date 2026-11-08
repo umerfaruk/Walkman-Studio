@@ -52,7 +52,7 @@ pub enum ChannelMode {
 /// R14.3/14.4/14.5's processing options. Times are in milliseconds (the UI's steppers are
 /// ±0.1/±1/±5s); `gain_db` is clamped by the caller to R14.5's −6dB..+6dB range (not enforced
 /// here, so test fixtures can exercise out-of-range values if ever needed).
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TrimCutOptions {
     pub mode: TrimCutMode,
     pub start_ms: u64,
