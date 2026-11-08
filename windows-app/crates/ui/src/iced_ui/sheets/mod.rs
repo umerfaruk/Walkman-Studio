@@ -8,6 +8,7 @@ use crate::iced_ui::theme::{color, font};
 use crate::iced_ui::widgets::glass;
 
 pub mod about;
+pub mod album_metadata;
 pub mod clean_eject;
 pub mod lyrics_editor;
 pub mod song_metadata;
