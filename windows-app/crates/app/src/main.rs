@@ -1,86 +1,129 @@
-//! Walkman Studio for Windows — application entry point.
+//! Walkman Studio for Windows — entry point (iced, since Milestone 8 of the
+//! egui-to-iced migration plan; this binary used to coexist with a now-deleted egui one
+//! during Milestones 1–7).
 //!
-//! Spec tasks 1 (bootstrap) & 2 (open a dark window at the enforced size). The full
-//! shell (sidebar, toolbar, inspector, now-playing bar) is built in task 4.
+//! `lifecycle.rs` replaces the egui version's "spawn a thread, stash its `Receiver`,
+//! poll every frame" pattern with iced's `Task`/`Subscription` model. The real `Player`
+//! is bound here and polled on a periodic `Subscription` tick (`PlayerPollTick`) — the
+//! closest iced equivalent to egui's "poll inline every frame," since iced's `view()`
+//! has no such hook of its own.
 
-// On Windows, suppress the console window in release builds (GUI subsystem).
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
-mod dispatch;
 mod lifecycle;
 mod services;
 
-use eframe::egui;
-use walkman_ui::theme::{color, sizing};
-use walkman_ui::AppState;
+use iced::{Element, Size, Task, Theme};
+use walkman_ui::iced_ui::shell;
+use walkman_ui::iced_ui::theme::sizing;
 
-use lifecycle::Lifecycle;
 use services::AppServices;
 
-fn main() -> eframe::Result<()> {
+fn main() -> iced::Result {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title("Walkman Studio")
-            .with_inner_size([sizing::WINDOW_DEFAULT.0, sizing::WINDOW_DEFAULT.1])
-            .with_min_inner_size([sizing::WINDOW_MIN.0, sizing::WINDOW_MIN.1]),
-        ..Default::default()
-    };
+    // Fallible service construction (the shared cache database) happens up front, exactly
+    // like `main.rs`'s `eframe::run_native` closure propagating it via `?` — a corrupt
+    // `library.sqlite3` is a startup-fatal condition either way.
+    let services = AppServices::new().expect("failed to start Walkman Studio services");
 
-    eframe::run_native(
-        "Walkman Studio",
-        options,
-        Box::new(|cc| {
-            walkman_ui::theme::install_fonts(&cc.egui_ctx);
-            apply_obsidian_visuals(&cc.egui_ctx);
-            let services = AppServices::new()?;
-            Ok(Box::new(WalkmanStudioApp {
-                state: AppState::default(),
-                services,
-                lifecycle: Lifecycle::default(),
-                dispatch: dispatch::Dispatch::default(),
-            }))
-        }),
-    )
+    iced::application(App::title, App::update, App::view)
+        .subscription(App::subscription)
+        .theme(App::theme)
+        .window(iced::window::Settings {
+            size: Size::new(sizing::WINDOW_DEFAULT.0, sizing::WINDOW_DEFAULT.1),
+            min_size: Some(Size::new(sizing::WINDOW_MIN.0, sizing::WINDOW_MIN.1)),
+            ..Default::default()
+        })
+        .run_with(move || App::new(services))
 }
 
-/// Applies the flat obsidian base look (no glow, dark surfaces). The full design
-/// system lands in tasks 3.1–3.3.
-fn apply_obsidian_visuals(ctx: &egui::Context) {
-    let mut visuals = egui::Visuals::dark();
-    visuals.panel_fill = color::BACKGROUND;
-    visuals.window_fill = color::CARD;
-    visuals.extreme_bg_color = color::INPUT;
-    ctx.set_visuals(visuals);
+#[derive(Debug, Clone)]
+enum Message {
+    Shell(shell::Message),
+    Lifecycle(lifecycle::Message),
+    PlayerPollTick,
 }
 
-/// Root application. Owns the shared [`AppState`], the real [`AppServices`] it's wired
-/// against (task 18), and renders the three-column shell each frame.
-struct WalkmanStudioApp {
-    state: AppState,
+/// How often the now-playing bar/overlay refreshes from the real player — fast enough for
+/// a smooth scrubber, matching the egui version's every-frame poll closely enough for a
+/// UI, not an audio-timing concern (the player itself drives actual playback).
+const PLAYER_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
+
+struct App {
+    state: shell::AppState,
     services: AppServices,
-    lifecycle: Lifecycle,
-    dispatch: dispatch::Dispatch,
+    /// Lifecycle bookkeeping that isn't UI-presentable state — ported from
+    /// `lifecycle.rs::Lifecycle::scanned_mounts`'s same role (don't rescan a mount that
+    /// hasn't changed).
+    scanned_mounts: Vec<String>,
 }
 
-impl eframe::App for WalkmanStudioApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Device attach/detach + library lifecycle (task 18): runs before the commands
-        // below so a just-detected device/just-finished scan is reflected in the same
-        // frame's command handling (e.g. a `Play` command resolving against fresh tracks).
-        self.lifecycle.tick(&mut self.services, &mut self.state);
+impl App {
+    fn new(services: AppServices) -> (Self, Task<Message>) {
+        let startup = lifecycle::startup_task(&services).map(Message::Lifecycle);
+        let state = shell::AppState {
+            player: Some(std::sync::Arc::clone(&services.player)),
+            ..shell::AppState::default()
+        };
+        (
+            App {
+                state,
+                services,
+                scanned_mounts: Vec::new(),
+            },
+            startup,
+        )
+    }
 
-        // Three-column shell: fixed 260pt sidebar | flexible detail | optional 300pt
-        // inspector. Default section on launch is Local Music Library (set in AppState).
-        walkman_ui::layout_shell(ctx, &mut self.state);
+    fn title(&self) -> String {
+        "Walkman Studio".to_string()
+    }
 
-        // Drains every view's emitted commands against the real services (task 18).
-        self.dispatch.tick(&self.services, &mut self.state);
-        lifecycle::refresh_sidebar_counts(&mut self.state);
+    fn update(&mut self, message: Message) -> Task<Message> {
+        match message {
+            Message::Shell(m) => {
+                shell::update(&mut self.state, m);
+                Task::none()
+            }
+            Message::Lifecycle(lifecycle::Message::LocalLibraryLoaded { folders, tracks }) => {
+                self.state.local_folders = folders;
+                self.state.local_tracks = tracks;
+                Task::none()
+            }
+            Message::Lifecycle(lifecycle::Message::DevicePollTick) => {
+                let (devices, task) =
+                    lifecycle::refresh_devices(&self.services, &mut self.scanned_mounts);
+                self.state.walkman_connected = !devices.is_empty();
+                if devices.is_empty() {
+                    self.state.walkman_tracks.clear();
+                }
+                self.state.devices = devices;
+                task.map_or(Task::none(), |t| t.map(Message::Lifecycle))
+            }
+            Message::Lifecycle(lifecycle::Message::WalkmanMountScanned(tracks)) => {
+                self.state.walkman_tracks = tracks;
+                Task::none()
+            }
+            Message::PlayerPollTick => {
+                shell::sync_now_playing_from_player(&mut self.state);
+                Task::none()
+            }
+        }
+    }
 
-        // The device-event/async-scan lifecycle above is poll-based, not event-driven from
-        // egui's perspective, so keep repainting even with no user input (R3.6/18.4).
-        ctx.request_repaint_after(std::time::Duration::from_millis(500));
+    fn theme(&self) -> Theme {
+        Theme::Dark
+    }
+
+    fn subscription(&self) -> iced::Subscription<Message> {
+        iced::Subscription::batch([
+            lifecycle::subscription().map(Message::Lifecycle),
+            iced::time::every(PLAYER_POLL_INTERVAL).map(|_| Message::PlayerPollTick),
+        ])
+    }
+
+    fn view(&self) -> Element<'_, Message> {
+        shell::view(&self.state).map(Message::Shell)
     }
 }

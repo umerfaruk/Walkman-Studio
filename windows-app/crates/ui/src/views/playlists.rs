@@ -1,27 +1,10 @@
-//! `PlaylistsView`, ported from `Sources/WalkmanStudio/Views/PlaylistsView.swift`.
-//!
-//! Spec task **17.3** (requirements 11.1, 11.2, 11.3): create/rename/delete a playlist, an
-//! add-tracks browser with multi-select (Shift-range/Ctrl-toggle + a header "Select"
-//! button), drag-free reordering via a floating batch action bar (`Move to Top`/Up/Down/
-//! `To Bottom`/remove), syncing instantly after each change — over the real
-//! `walkman_domain::models::Playlist` and `walkman_services::walkman_engine::{write_playlist,
-//! read_playlist, rename_playlist, delete_playlist}` built in task 9.3.
-//!
-//! ## Honest simplification
-//! "Add-browsing modes" (R11.2: "Songs, Recently Added, and the other add-browsing modes")
-//! is implemented as a mode-tabbed search+select list over whatever `Track` slice the
-//! caller passes for each mode; the Recently Added *ordering* itself (newest-first within a
-//! time scope) reuses [`crate::views::recently_added`]'s own pure sort rather than
-//! re-deriving it, but the Albums/Artists grouping modes stay a flat track list for now — a
-//! full drill-down browser inside this already-nested sheet was judged more complexity than
-//! the requirement's own wording ("the other add-browsing modes") demands.
-
-use eframe::egui;
+//! Pure types/logic behind `PlaylistsView`, ported from
+//! `Sources/WalkmanStudio/Views/PlaylistsView.swift`. The rendering itself lives in
+//! `iced_ui::views::playlists` (the egui `render` this module used to carry was removed
+//! once the iced migration reached parity — see Milestone 8 of the egui-to-iced
+//! migration plan).
 
 use walkman_domain::models::{Playlist, Track};
-
-use crate::selection;
-use crate::theme::{button, color, font, glass, sizing};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AddTracksMode {
@@ -46,8 +29,9 @@ impl AddTracksMode {
 }
 
 /// Tracks for `mode`'s add-browser list, pure so the mode-filtering is unit-testable without
-/// a live `Ui`. `Albums`/`Artists` just sort by their grouping key (see the module's own
-/// honest-simplification note on why they aren't a full drill-down here).
+/// a live `Ui`. `Albums`/`Artists` just sort by their grouping key (a full drill-down browser
+/// inside this already-nested sheet was judged more complexity than the requirement's own
+/// wording, "the other add-browsing modes," demands).
 pub fn tracks_for_add_mode<'a>(tracks: &'a [Track], mode: AddTracksMode) -> Vec<&'a Track> {
     let mut sorted: Vec<&Track> = tracks.iter().collect();
     match mode {
@@ -98,20 +82,12 @@ pub struct PlaylistsViewState {
     pub commands: Vec<PlaylistsCommand>,
 }
 
-pub fn render(ui: &mut egui::Ui, playlists: &[Playlist], all_tracks: &[Track], state: &mut PlaylistsViewState) {
-    sync_active_tracks(playlists, state);
-
-    ui.columns(2, |cols| {
-        render_playlist_list(&mut cols[0], playlists, state);
-        render_track_list(&mut cols[1], playlists, state);
-    });
-
-    render_sheet(ui, all_tracks, state);
-}
-
 /// Re-seeds `active_tracks` from the real `Playlist` whenever the selection changes to a
 /// different playlist (or the selection is cleared), so edits made via the batch bar aren't
-/// clobbered on every frame but a freshly-opened playlist always starts from its real list.
+/// clobbered on every call but a freshly-opened playlist always starts from its real list.
+/// Called by both the egui-era caller (historically, every frame) and the iced port (on the
+/// message that actually changes the selection) — either way it's a no-op once the working
+/// copy for the current selection is already loaded.
 pub fn sync_active_tracks(playlists: &[Playlist], state: &mut PlaylistsViewState) {
     if state.loaded_for == state.selected_playlist_id {
         return;
@@ -125,154 +101,6 @@ pub fn sync_active_tracks(playlists: &[Playlist], state: &mut PlaylistsViewState
         .unwrap_or_default();
     state.selected_rows.clear();
     state.selection_anchor = None;
-}
-
-fn render_playlist_list(ui: &mut egui::Ui, playlists: &[Playlist], state: &mut PlaylistsViewState) {
-    ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Playlists").font(font::title3()).color(color::SILVER_LIGHT));
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.add(button::Button::new("New\u{2026}", button::Variant::Prominent)).clicked() {
-                state.sheet = PlaylistsSheet::CreatePlaylist { name: String::new() };
-            }
-        });
-    });
-    ui.add_space(8.0);
-
-    egui::ScrollArea::vertical().id_salt("playlist_list_scroll").auto_shrink([false, false]).show(ui, |ui| {
-        for playlist in playlists {
-            let selected = state.selected_playlist_id.as_deref() == Some(playlist.full_path.as_str());
-            let glass_state = if selected { glass::State::Selected } else { glass::State::Normal };
-            let response = glass::liquid_glass(glass_state).show(ui, |ui| {
-                ui.set_min_width(ui.available_width());
-                ui.horizontal(|ui| {
-                    ui.vertical(|ui| {
-                        ui.label(egui::RichText::new(&playlist.name).font(font::body_medium()).color(color::SILVER_LIGHT));
-                        ui.label(
-                            egui::RichText::new(format!("{} track{}", playlist.track_count, if playlist.track_count == 1 { "" } else { "s" }))
-                                .font(font::caption())
-                                .color(color::SILVER_MUTED),
-                        );
-                    });
-                });
-            });
-            let row_response = response.response.interact(egui::Sense::click());
-            if row_response.clicked() {
-                state.selected_playlist_id = Some(playlist.full_path.clone());
-            }
-            row_response.context_menu(|ui| {
-                if ui.button("Rename\u{2026}").clicked() {
-                    state.sheet = PlaylistsSheet::RenamePlaylist { playlist_id: playlist.full_path.clone(), name: playlist.name.clone() };
-                    ui.close_menu();
-                }
-                if ui.button("Delete").clicked() {
-                    state.sheet = PlaylistsSheet::DeleteConfirm { playlist_id: playlist.full_path.clone() };
-                    ui.close_menu();
-                }
-            });
-            ui.add_space(4.0);
-        }
-    });
-}
-
-fn render_track_list(ui: &mut egui::Ui, playlists: &[Playlist], state: &mut PlaylistsViewState) {
-    let Some(playlist_id) = state.selected_playlist_id.clone() else {
-        ui.vertical_centered(|ui| {
-            ui.add_space(60.0);
-            ui.label(egui::RichText::new("Select a playlist").font(font::callout()).color(color::SILVER_MUTED));
-        });
-        return;
-    };
-
-    ui.horizontal(|ui| {
-        let name = playlists.iter().find(|p| p.full_path == playlist_id).map(|p| p.name.clone()).unwrap_or_default();
-        ui.label(egui::RichText::new(name).font(font::title3()).color(color::SILVER_LIGHT));
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.add(button::Button::new("Add Tracks\u{2026}", button::Variant::Prominent)).clicked() {
-                state.sheet = PlaylistsSheet::AddTracks { mode: AddTracksMode::default(), search: String::new(), selected: Vec::new() };
-            }
-            ui.add_space(8.0);
-            if ui.add(button::Button::new("Select", button::Variant::Glass)).clicked() {
-                selection::toggle_select_all(&mut state.selected_rows, &row_ids(state.active_tracks.len()));
-            }
-        });
-    });
-    ui.add_space(8.0);
-
-    let row_ids_vec = row_ids(state.active_tracks.len());
-    egui::ScrollArea::vertical().id_salt("playlist_tracks_scroll").auto_shrink([false, false]).show(ui, |ui| {
-        for (index, relative_path) in state.active_tracks.clone().into_iter().enumerate() {
-            render_track_row(ui, index, &relative_path, &row_ids_vec, state);
-        }
-        ui.add_space(sizing::TABLE_BOTTOM_INSET);
-    });
-
-    if !state.selected_rows.is_empty() {
-        render_batch_action_bar(ui, &playlist_id, state);
-    }
-}
-
-/// Synthetic row ids (`"0"`, `"1"`, ...) for [`selection::handle_click`] — a playlist's
-/// relative paths aren't unique (the same track can be added twice), so the row's index is
-/// the only stable per-row identity.
-fn row_ids(len: usize) -> Vec<String> {
-    (0..len).map(|i| i.to_string()).collect()
-}
-
-fn render_track_row(ui: &mut egui::Ui, index: usize, relative_path: &str, all_ids: &[String], state: &mut PlaylistsViewState) {
-    let id = index.to_string();
-    let selected = state.selected_rows.contains(&id);
-    let glass_state = if selected { glass::State::Selected } else { glass::State::Normal };
-    let response = glass::liquid_glass(glass_state).show(ui, |ui| {
-        ui.set_min_width(ui.available_width());
-        ui.label(egui::RichText::new(relative_path).font(font::body()).color(color::SILVER_LIGHT));
-    });
-    let row_response = response.response.interact(egui::Sense::click());
-    if row_response.clicked() {
-        let modifiers = ui.input(|i| i.modifiers);
-        selection::handle_click(&mut state.selected_rows, &mut state.selection_anchor, all_ids, index, &id, modifiers.shift, modifiers.command || modifiers.ctrl);
-    }
-}
-
-fn render_batch_action_bar(ui: &mut egui::Ui, playlist_id: &str, state: &mut PlaylistsViewState) {
-    ui.add_space(8.0);
-    glass::liquid_glass(glass::State::Normal).show(ui, |ui| {
-        ui.horizontal(|ui| {
-            ui.label(
-                egui::RichText::new(format!("{} selected", state.selected_rows.len()))
-                    .font(font::caption_bold())
-                    .color(color::SILVER_MUTED),
-            );
-            ui.add_space(10.0);
-            if ui.add(button::Button::new("Move to Top", button::Variant::Glass)).clicked() {
-                apply_reorder(state, playlist_id, move_selected_to_top);
-            }
-            if ui.add(button::Button::new("\u{2191}", button::Variant::Glass)).clicked() {
-                apply_reorder(state, playlist_id, |tracks, selected| shift_selected(tracks, selected, -1));
-            }
-            if ui.add(button::Button::new("\u{2193}", button::Variant::Glass)).clicked() {
-                apply_reorder(state, playlist_id, |tracks, selected| shift_selected(tracks, selected, 1));
-            }
-            if ui.add(button::Button::new("Move to Bottom", button::Variant::Glass)).clicked() {
-                apply_reorder(state, playlist_id, move_selected_to_bottom);
-            }
-            ui.add_space(10.0);
-            if ui.add(button::Button::new("Remove", button::Variant::Destructive)).clicked() {
-                apply_reorder(state, playlist_id, remove_selected);
-            }
-        });
-    });
-}
-
-/// Applies a pure reorder/removal function to the selected row indices against
-/// `state.active_tracks`, clears the selection (indices no longer line up after a move), and
-/// emits the resulting order as a [`PlaylistsCommand::Reorder`] (R11.3's instant sync).
-fn apply_reorder(state: &mut PlaylistsViewState, playlist_id: &str, f: impl FnOnce(&mut Vec<String>, &[usize])) {
-    let mut selected_indices: Vec<usize> = state.selected_rows.iter().filter_map(|s| s.parse().ok()).collect();
-    selected_indices.sort_unstable();
-    f(&mut state.active_tracks, &selected_indices);
-    state.selected_rows.clear();
-    state.selection_anchor = None;
-    state.commands.push(PlaylistsCommand::Reorder { playlist_id: playlist_id.to_owned(), relative_paths: state.active_tracks.clone() });
 }
 
 /// Moves every selected index to the front, preserving their relative order, then the
@@ -324,153 +152,6 @@ pub fn remove_selected(tracks: &mut Vec<String>, selected: &[usize]) {
     for &i in selected.iter().rev() {
         if i < tracks.len() {
             tracks.remove(i);
-        }
-    }
-}
-
-fn render_sheet(ui: &mut egui::Ui, all_tracks: &[Track], state: &mut PlaylistsViewState) {
-    let ctx = ui.ctx().clone();
-    match state.sheet.clone() {
-        PlaylistsSheet::None => {}
-        PlaylistsSheet::CreatePlaylist { mut name } => {
-            let mut close = false;
-            let mut create = false;
-            crate::sheets::modal(&ctx, "playlists_create_sheet", egui::vec2(420.0, 200.0), |ui| {
-                ui.label(egui::RichText::new("New Playlist").font(font::title2()).color(color::SILVER_LIGHT));
-                ui.add_space(8.0);
-                ui.add(egui::TextEdit::singleline(&mut name).hint_text("Playlist name").desired_width(f32::INFINITY));
-                ui.add_space(12.0);
-                ui.horizontal(|ui| {
-                    if ui.add(button::Button::new("Create", button::Variant::Prominent).enabled(!name.trim().is_empty())).clicked() {
-                        create = true;
-                    }
-                    if ui.add(button::Button::new("Cancel", button::Variant::Glass)).clicked() {
-                        close = true;
-                    }
-                });
-            });
-            if create {
-                state.commands.push(PlaylistsCommand::Create(name.clone()));
-                state.sheet = PlaylistsSheet::None;
-            } else if close {
-                state.sheet = PlaylistsSheet::None;
-            } else {
-                state.sheet = PlaylistsSheet::CreatePlaylist { name };
-            }
-        }
-        PlaylistsSheet::RenamePlaylist { playlist_id, mut name } => {
-            let mut close = false;
-            let mut rename = false;
-            crate::sheets::modal(&ctx, "playlists_rename_sheet", egui::vec2(420.0, 200.0), |ui| {
-                ui.label(egui::RichText::new("Rename Playlist").font(font::title2()).color(color::SILVER_LIGHT));
-                ui.add_space(8.0);
-                ui.add(egui::TextEdit::singleline(&mut name).desired_width(f32::INFINITY));
-                ui.add_space(12.0);
-                ui.horizontal(|ui| {
-                    if ui.add(button::Button::new("Rename", button::Variant::Prominent).enabled(!name.trim().is_empty())).clicked() {
-                        rename = true;
-                    }
-                    if ui.add(button::Button::new("Cancel", button::Variant::Glass)).clicked() {
-                        close = true;
-                    }
-                });
-            });
-            if rename {
-                state.commands.push(PlaylistsCommand::Rename { playlist_id: playlist_id.clone(), new_name: name.clone() });
-                state.sheet = PlaylistsSheet::None;
-            } else if close {
-                state.sheet = PlaylistsSheet::None;
-            } else {
-                state.sheet = PlaylistsSheet::RenamePlaylist { playlist_id, name };
-            }
-        }
-        PlaylistsSheet::DeleteConfirm { playlist_id } => {
-            crate::sheets::modal(&ctx, "playlists_delete_confirm_sheet", egui::vec2(420.0, 200.0), |ui| {
-                ui.label(egui::RichText::new("Delete Playlist?").font(font::title2()).color(color::SILVER_LIGHT));
-                ui.label(egui::RichText::new("This can't be undone.").font(font::callout()).color(color::SILVER_MUTED));
-                ui.add_space(12.0);
-                ui.horizontal(|ui| {
-                    if ui.add(button::Button::new("Delete", button::Variant::Destructive)).clicked() {
-                        state.commands.push(PlaylistsCommand::Delete(playlist_id.clone()));
-                        state.sheet = PlaylistsSheet::None;
-                        if state.selected_playlist_id.as_deref() == Some(playlist_id.as_str()) {
-                            state.selected_playlist_id = None;
-                        }
-                    }
-                    if ui.add(button::Button::new("Cancel", button::Variant::Glass)).clicked() {
-                        state.sheet = PlaylistsSheet::None;
-                    }
-                });
-            });
-        }
-        PlaylistsSheet::AddTracks { mode, mut search, mut selected } => {
-            let mut close = false;
-            let mut add = false;
-            crate::sheets::modal(&ctx, "playlists_add_tracks_sheet", egui::vec2(560.0, 560.0), |ui| {
-                ui.label(egui::RichText::new("Add Tracks").font(font::title2()).color(color::SILVER_LIGHT));
-                ui.add_space(8.0);
-                ui.horizontal(|ui| {
-                    for m in AddTracksMode::ALL {
-                        let variant = if mode == m { button::Variant::Capsule } else { button::Variant::Glass };
-                        if ui.add(button::Button::new(m.title(), variant)).clicked() {
-                            state.sheet = PlaylistsSheet::AddTracks { mode: m, search: search.clone(), selected: selected.clone() };
-                        }
-                    }
-                });
-                ui.add_space(8.0);
-                ui.add(egui::TextEdit::singleline(&mut search).hint_text("Search").desired_width(f32::INFINITY));
-                ui.add_space(8.0);
-
-                let query = search.trim().to_lowercase();
-                let candidates = tracks_for_add_mode(all_tracks, mode);
-                let filtered: Vec<&Track> = candidates
-                    .into_iter()
-                    .filter(|t| query.is_empty() || t.title.to_lowercase().contains(&query) || t.artist.to_lowercase().contains(&query))
-                    .collect();
-
-                egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
-                    for track in &filtered {
-                        let checked = selected.contains(&track.relative_path);
-                        let mut is_checked = checked;
-                        ui.horizontal(|ui| {
-                            if ui.checkbox(&mut is_checked, "").changed() {
-                                if is_checked {
-                                    selected.push(track.relative_path.clone());
-                                } else {
-                                    selected.retain(|p| p != &track.relative_path);
-                                }
-                            }
-                            ui.label(egui::RichText::new(&track.title).font(font::body()).color(color::SILVER_LIGHT));
-                            ui.label(egui::RichText::new(&track.artist).font(font::caption()).color(color::SILVER_MUTED));
-                        });
-                    }
-                });
-
-                ui.add_space(12.0);
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(format!("{} selected", selected.len())).font(font::caption()).color(color::SILVER_MUTED));
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.add(button::Button::new("Add", button::Variant::Prominent).enabled(!selected.is_empty())).clicked() {
-                            add = true;
-                        }
-                        if ui.add(button::Button::new("Cancel", button::Variant::Glass)).clicked() {
-                            close = true;
-                        }
-                    });
-                });
-            });
-
-            if add {
-                if let Some(playlist_id) = state.selected_playlist_id.clone() {
-                    state.commands.push(PlaylistsCommand::AddTracks { playlist_id, relative_paths: selected.clone() });
-                }
-                state.sheet = PlaylistsSheet::None;
-            } else if close {
-                state.sheet = PlaylistsSheet::None;
-            } else if let PlaylistsSheet::AddTracks { .. } = &state.sheet {
-                // Not already replaced by a mode-switch above; persist search/selection edits.
-                state.sheet = PlaylistsSheet::AddTracks { mode, search, selected };
-            }
         }
     }
 }
@@ -601,36 +282,5 @@ mod tests {
         state.active_tracks.push("b.flac".into());
         sync_active_tracks(&playlists, &mut state);
         assert_eq!(state.active_tracks, vec!["a.flac", "b.flac"]);
-    }
-
-    // ---- Headless render smoke test ----
-
-    #[test]
-    fn playlists_view_renders_in_headless_frame_for_every_state() {
-        let ctx = egui::Context::default();
-        crate::theme::install_fonts(&ctx);
-
-        let playlists = vec![sample_playlist("Mix", vec!["a.flac", "b.flac"])];
-        let tracks = vec![sample_track("Song A"), sample_track("Song B")];
-
-        let sheets = [
-            PlaylistsSheet::None,
-            PlaylistsSheet::CreatePlaylist { name: "New Mix".into() },
-            PlaylistsSheet::RenamePlaylist { playlist_id: playlists[0].full_path.clone(), name: "Mix".into() },
-            PlaylistsSheet::DeleteConfirm { playlist_id: playlists[0].full_path.clone() },
-            PlaylistsSheet::AddTracks { mode: AddTracksMode::Songs, search: String::new(), selected: Vec::new() },
-        ];
-
-        for (selected_playlist, sheet) in [(None, PlaylistsSheet::None)]
-            .into_iter()
-            .chain(sheets.into_iter().map(|s| (Some(playlists[0].full_path.clone()), s)))
-        {
-            let mut state = PlaylistsViewState { selected_playlist_id: selected_playlist, sheet, ..PlaylistsViewState::default() };
-            let _ = ctx.run(egui::RawInput::default(), |ctx| {
-                egui::CentralPanel::default().show(ctx, |ui| {
-                    render(ui, &playlists, &tracks, &mut state);
-                });
-            });
-        }
     }
 }

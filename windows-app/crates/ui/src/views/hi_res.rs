@@ -1,14 +1,11 @@
-//! `HiResAudioView` (spec task 14.6), ported from `HiResAudioView.swift`: tracks filtered to
-//! more than 16-bit or more than 48kHz, with Tracks/Albums/Artists view modes, their own sort
-//! options, a format/quality filter, search, context menus, and batch lyrics (R5.5).
-
-use eframe::egui;
+//! Pure types/logic behind `HiResAudioView`, ported from `HiResAudioView.swift`. The
+//! rendering itself lives in `iced_ui::views::hi_res` (the egui `render` this module
+//! used to carry was removed once the iced migration reached parity — see Milestone 8
+//! of the egui-to-iced migration plan).
 
 use walkman_domain::models::Track;
 
-use crate::selection;
-use crate::theme::{button, color, font, glass, sizing};
-use crate::views::albums::{self, AlbumSortOption};
+use crate::views::albums::AlbumSortOption;
 
 /// R5.5's three view modes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -132,179 +129,6 @@ pub struct HiResViewState {
     pub commands: Vec<HiResCommand>,
 }
 
-pub fn render(ui: &mut egui::Ui, all_tracks: &[Track], state: &mut HiResViewState) {
-    let tracks = hi_res_tracks(all_tracks);
-
-    render_toolbar(ui, &tracks, state);
-    ui.add_space(8.0);
-
-    match state.mode {
-        HiResViewMode::Tracks => render_tracks(ui, &tracks, state),
-        HiResViewMode::Albums => render_albums(ui, &tracks, state),
-        HiResViewMode::Artists => render_artists(ui, &tracks),
-    }
-}
-
-fn render_toolbar(ui: &mut egui::Ui, tracks: &[Track], state: &mut HiResViewState) {
-    ui.horizontal(|ui| {
-        for mode in HiResViewMode::ALL {
-            let variant = if state.mode == mode { button::Variant::Capsule } else { button::Variant::Glass };
-            if ui.add(button::Button::new(mode.title(), variant)).clicked() {
-                state.mode = mode;
-            }
-        }
-        ui.add_space(12.0);
-
-        if state.mode == HiResViewMode::Tracks {
-            let all_variant = if state.quality_filter == QualityFilter::All { button::Variant::Capsule } else { button::Variant::Glass };
-            if ui.add(button::Button::new("ALL", all_variant)).clicked() {
-                state.quality_filter = QualityFilter::All;
-            }
-            for format in distinct_formats(tracks) {
-                let active = state.quality_filter == QualityFilter::Format(format.clone());
-                let variant = if active { button::Variant::Capsule } else { button::Variant::Glass };
-                if ui.add(button::Button::new(&format, variant)).clicked() {
-                    state.quality_filter = QualityFilter::Format(format.clone());
-                }
-            }
-            ui.add_space(12.0);
-            egui::ComboBox::from_id_salt("hi_res_track_sort").selected_text(state.track_sort.title()).show_ui(ui, |ui| {
-                for option in TrackSortOption::ALL {
-                    ui.selectable_value(&mut state.track_sort, option, option.title());
-                }
-            });
-        } else if state.mode == HiResViewMode::Albums {
-            egui::ComboBox::from_id_salt("hi_res_album_sort").selected_text(state.album_sort.title()).show_ui(ui, |ui| {
-                for option in AlbumSortOption::ALL {
-                    ui.selectable_value(&mut state.album_sort, option, option.title());
-                }
-            });
-        }
-
-        ui.add_space(12.0);
-        let frame = glass::liquid_glass(glass::State::Normal);
-        frame.show(ui, |ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut state.search_query)
-                    .hint_text("Search Hi-Res Audio")
-                    .desired_width(200.0)
-                    .font(font::body()),
-            );
-        });
-
-        ui.add_space(12.0);
-        let has_selection = !state.selected.is_empty();
-        if ui.add(button::Button::new("Find Lyrics\u{2026}", button::Variant::Glass).enabled(has_selection)).clicked() {
-            state.commands.push(HiResCommand::BatchLyrics(state.selected.clone()));
-        }
-    });
-}
-
-fn render_tracks(ui: &mut egui::Ui, tracks: &[Track], state: &mut HiResViewState) {
-    let filtered = filter_tracks(tracks, &state.quality_filter, &state.search_query);
-    let mut owned: Vec<Track> = filtered.into_iter().cloned().collect();
-    sort_tracks(&mut owned, state.track_sort);
-    let all_ids: Vec<String> = owned.iter().map(|t| t.full_path.clone()).collect();
-
-    egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-        for (index, track) in owned.iter().enumerate() {
-            render_track_row(ui, index, track, &all_ids, state);
-        }
-        ui.add_space(sizing::TABLE_BOTTOM_INSET);
-    });
-}
-
-fn render_track_row(ui: &mut egui::Ui, index: usize, track: &Track, all_ids: &[String], state: &mut HiResViewState) {
-    let selected = state.selected.contains(&track.full_path);
-    let glass_state = if selected { glass::State::Selected } else { glass::State::Normal };
-    let frame = glass::liquid_glass(glass_state);
-
-    let response = frame
-        .show(ui, |ui| {
-            ui.set_min_width(ui.available_width());
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(&track.title).font(font::body_medium()).color(color::SILVER_LIGHT));
-                ui.add_space(12.0);
-                ui.label(egui::RichText::new(&track.artist).font(font::body()).color(color::SILVER_MUTED));
-                crate::theme::widgets::hi_res_badge(ui);
-                ui.label(
-                    egui::RichText::new(format!("{}bit/{}kHz", track.bits_per_sample, track.sample_rate / 1000))
-                        .font(font::mono_small())
-                        .color(color::SILVER_MUTED),
-                );
-            });
-        })
-        .response
-        .interact(egui::Sense::click());
-
-    if response.clicked() {
-        let (shift, ctrl) = ui.input(|i| (i.modifiers.shift, i.modifiers.command || i.modifiers.ctrl));
-        selection::handle_click(&mut state.selected, &mut state.selection_anchor, all_ids, index, &track.full_path, shift, ctrl);
-    }
-
-    let path = track.full_path.clone();
-    response.context_menu(|ui| {
-        if ui.button("Play").clicked() {
-            state.commands.push(HiResCommand::Play(path.clone()));
-            ui.close_menu();
-        }
-        if ui.button("Edit Metadata\u{2026}").clicked() {
-            state.commands.push(HiResCommand::EditMetadata(path.clone()));
-            ui.close_menu();
-        }
-        if ui.button("Trim & Cut\u{2026}").clicked() {
-            state.commands.push(HiResCommand::TrimCut(path.clone()));
-            ui.close_menu();
-        }
-        if ui.button("Transfer\u{2026}").clicked() {
-            state.commands.push(HiResCommand::Transfer(vec![path.clone()]));
-            ui.close_menu();
-        }
-        ui.separator();
-        if ui.button("Delete").clicked() {
-            state.commands.push(HiResCommand::Delete(vec![path.clone()]));
-            ui.close_menu();
-        }
-    });
-    ui.add_space(2.0);
-}
-
-fn render_albums(ui: &mut egui::Ui, tracks: &[Track], state: &mut HiResViewState) {
-    let mut grouped = albums::group_into_albums(tracks);
-    albums::sort_albums(&mut grouped, state.album_sort);
-
-    egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-        for album in &grouped {
-            let frame = glass::liquid_glass(glass::State::Normal);
-            frame.show(ui, |ui| {
-                ui.set_min_width(ui.available_width());
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(&album.name).font(font::body_medium()).color(color::SILVER_LIGHT));
-                    ui.label(egui::RichText::new(&album.artist).font(font::caption()).color(color::SILVER_MUTED));
-                    crate::theme::widgets::hi_res_badge(ui);
-                });
-            });
-            ui.add_space(2.0);
-        }
-        ui.add_space(sizing::TABLE_BOTTOM_INSET);
-    });
-}
-
-fn render_artists(ui: &mut egui::Ui, tracks: &[Track]) {
-    let grouped = crate::views::artists::group_into_artists(tracks);
-    egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-        for artist in &grouped {
-            let frame = glass::liquid_glass(glass::State::Normal);
-            frame.show(ui, |ui| {
-                ui.set_min_width(ui.available_width());
-                ui.label(egui::RichText::new(&artist.name).font(font::body_medium()).color(color::SILVER_LIGHT));
-            });
-            ui.add_space(2.0);
-        }
-        ui.add_space(sizing::TABLE_BOTTOM_INSET);
-    });
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -365,24 +189,5 @@ mod tests {
         let tracks = [track("Dawn", "Nova", "Horizon", 24, 96_000, "FLAC"), track("Dusk", "Echo", "Reverb", 24, 96_000, "ALAC")];
         assert_eq!(filter_tracks(&tracks, &QualityFilter::Format("FLAC".into()), "").len(), 1);
         assert_eq!(filter_tracks(&tracks, &QualityFilter::All, "echo").len(), 1);
-    }
-
-    #[test]
-    fn renders_in_headless_frame_for_every_view_mode() {
-        let ctx = egui::Context::default();
-        crate::theme::install_fonts(&ctx);
-        let tracks = vec![
-            track("Dawn", "Nova", "Horizon", 24, 96_000, "FLAC"),
-            track("Dusk", "Nova", "Horizon", 24, 96_000, "FLAC"),
-        ];
-
-        for mode in HiResViewMode::ALL {
-            let mut state = HiResViewState { mode, ..Default::default() };
-            let _ = ctx.run(egui::RawInput::default(), |ctx| {
-                egui::CentralPanel::default().show(ctx, |ui| {
-                    render(ui, &tracks, &mut state);
-                });
-            });
-        }
     }
 }

@@ -1,13 +1,11 @@
-//! `RecentlyAddedView` (spec task 14.3), ported from `RecentlyAddedView.swift`: ranked
-//! recently-added tracks with a time-scope picker and a batch-lyrics button (R5.2).
+//! Pure types/logic behind `RecentlyAddedView`, ported from `RecentlyAddedView.swift`.
+//! The rendering itself lives in `iced_ui::views::recently_added` (the egui `render` this
+//! module used to carry was removed once the iced migration reached parity — see
+//! Milestone 8 of the egui-to-iced migration plan).
 
 use chrono::{DateTime, Utc};
-use eframe::egui;
 
 use walkman_domain::models::Track;
-
-use crate::selection;
-use crate::theme::{button, color, font, glass, sizing};
 
 /// R5.2's four time scopes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -69,94 +67,6 @@ pub struct RecentlyAddedViewState {
     pub commands: Vec<RecentlyAddedCommand>,
 }
 
-pub fn render(ui: &mut egui::Ui, tracks: &[Track], now: DateTime<Utc>, state: &mut RecentlyAddedViewState) {
-    ui.horizontal(|ui| {
-        for scope in TimeScope::ALL {
-            let variant = if state.scope == scope { button::Variant::Capsule } else { button::Variant::Glass };
-            if ui.add(button::Button::new(scope.title(), variant)).clicked() {
-                state.scope = scope;
-            }
-        }
-
-        ui.add_space(12.0);
-        let has_selection = !state.selected.is_empty();
-        if ui
-            .add(button::Button::new("Find Lyrics\u{2026}", button::Variant::Glass).enabled(has_selection))
-            .clicked()
-        {
-            state.commands.push(RecentlyAddedCommand::BatchLyrics(state.selected.clone()));
-        }
-    });
-    ui.add_space(8.0);
-
-    let ranked = ranked_tracks(tracks, state.scope, now);
-    let all_ids: Vec<String> = ranked.iter().map(|t| t.full_path.clone()).collect();
-
-    egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-        for (index, track) in ranked.iter().enumerate() {
-            render_row(ui, index, track, &all_ids, state);
-        }
-        ui.add_space(sizing::TABLE_BOTTOM_INSET);
-    });
-}
-
-fn render_row(ui: &mut egui::Ui, index: usize, track: &Track, all_ids: &[String], state: &mut RecentlyAddedViewState) {
-    let selected = state.selected.contains(&track.full_path);
-    let glass_state = if selected { glass::State::Selected } else { glass::State::Normal };
-    let frame = glass::liquid_glass(glass_state);
-
-    let response = frame
-        .show(ui, |ui| {
-            ui.set_min_width(ui.available_width());
-            ui.horizontal(|ui| {
-                ui.label(
-                    egui::RichText::new(format!("#{}", index + 1)).font(font::mono()).color(color::SILVER_MUTED),
-                );
-                ui.add_space(8.0);
-                ui.label(egui::RichText::new(&track.title).font(font::body_medium()).color(color::SILVER_LIGHT));
-                ui.add_space(12.0);
-                ui.label(egui::RichText::new(&track.artist).font(font::body()).color(color::SILVER_MUTED));
-                if track.bits_per_sample > 16 || track.sample_rate > 48_000 {
-                    crate::theme::widgets::hi_res_badge(ui);
-                }
-            });
-        })
-        .response
-        .interact(egui::Sense::click());
-
-    if response.clicked() {
-        let (shift, ctrl) = ui.input(|i| (i.modifiers.shift, i.modifiers.command || i.modifiers.ctrl));
-        selection::handle_click(&mut state.selected, &mut state.selection_anchor, all_ids, index, &track.full_path, shift, ctrl);
-    }
-
-    let path = track.full_path.clone();
-    response.context_menu(|ui| {
-        if ui.button("Play").clicked() {
-            state.commands.push(RecentlyAddedCommand::Play(path.clone()));
-            ui.close_menu();
-        }
-        if ui.button("Edit Metadata\u{2026}").clicked() {
-            state.commands.push(RecentlyAddedCommand::EditMetadata(path.clone()));
-            ui.close_menu();
-        }
-        if ui.button("Trim & Cut\u{2026}").clicked() {
-            state.commands.push(RecentlyAddedCommand::TrimCut(path.clone()));
-            ui.close_menu();
-        }
-        if ui.button("Transfer\u{2026}").clicked() {
-            state.commands.push(RecentlyAddedCommand::Transfer(vec![path.clone()]));
-            ui.close_menu();
-        }
-        ui.separator();
-        if ui.button("Delete").clicked() {
-            state.commands.push(RecentlyAddedCommand::Delete(vec![path.clone()]));
-            ui.close_menu();
-        }
-    });
-
-    ui.add_space(2.0);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -214,22 +124,5 @@ mod tests {
         assert_eq!(ranked.len(), 3);
         assert_eq!(ranked[0].title, "Track 1");
         assert_eq!(ranked[2].title, "Track 100");
-    }
-
-    #[test]
-    fn renders_in_headless_frame_for_every_scope() {
-        let ctx = egui::Context::default();
-        crate::theme::install_fonts(&ctx);
-        let tracks = vec![track_added(1), track_added(200)];
-        let now = Utc::now();
-
-        for scope in TimeScope::ALL {
-            let mut state = RecentlyAddedViewState { scope, ..Default::default() };
-            let _ = ctx.run(egui::RawInput::default(), |ctx| {
-                egui::CentralPanel::default().show(ctx, |ui| {
-                    render(ui, &tracks, now, &mut state);
-                });
-            });
-        }
     }
 }

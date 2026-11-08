@@ -31,12 +31,12 @@ pub fn library_db_path() -> PathBuf {
 pub struct AppServices {
     pub scanner: Arc<LibraryScanner>,
     pub local_library: Arc<LocalLibrary>,
-    // The `walkman-studio-iced` binary doesn't read `transfer_queue`/`device_events`/
-    // `file_dialogs` yet — the egui binary's `dispatch.rs` does; `player` is bound in
-    // Milestone 7 (`main_iced.rs`). They're wired into the iced shell as the views/sheets
-    // that need them are ported (transfer_queue/file_dialogs: the views/sheets
-    // milestones; device_events: once bridged into a real-time `Subscription`, see
-    // `lifecycle_iced.rs`'s doc comment on its current poll-only simplification).
+    // `transfer_queue`/`device_events`/`file_dialogs` aren't read yet; `player` is bound
+    // in `main.rs`. They're wired into the iced shell as the deferred sheets/views that
+    // need them are completed (transfer_queue/file_dialogs: dispatch wiring for the
+    // sheets that currently only record commands; device_events: once bridged into a
+    // real-time `Subscription`, see `lifecycle.rs`'s doc comment on its current
+    // poll-only simplification).
     pub player: Arc<Player>,
     #[allow(dead_code)]
     pub transfer_queue: Arc<TransferQueue>,

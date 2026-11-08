@@ -1,25 +1,15 @@
-//! `TrimAndCutSheet`, ported from `Sources/WalkmanStudio/Views/TrimAndCutSheet.swift`.
+//! Pure types/logic behind `TrimAndCutSheet`, ported from
+//! `Sources/WalkmanStudio/Views/TrimAndCutSheet.swift`. The rendering itself lives in
+//! `iced_ui::sheets::trim_cut` (the egui `render`/waveform painting this module used to
+//! carry was removed once the iced migration reached parity — see Milestone 8 of the
+//! egui-to-iced migration plan).
 //!
-//! Spec task **17.5** (requirements 14.1-14.5): a waveform scrubber with draggable in/out
-//! handles, Trim/Cut modes, millisecond steppers (±0.1/±1/±5s) + lock-to-playhead, channel
-//! routing, fades + gain, and preview playback — over the real
-//! `walkman_services::trim_cut::{TrimCutMode, ChannelMode, TrimCutOptions, generate_waveform}`
-//! built in task 12.1.
-//!
-//! ## Honest simplification
 //! "Gapless preview playback" (R14.1) means actually feeding the trimmed/cut range to the
-//! real `Player` (task 13); this sheet only renders a playhead and emits `Preview`/
-//! `StopPreview` commands — task 18 is expected to drive an actual `Player` instance from
-//! them and write the playhead position back into [`TrimCutSheetState::playhead_ms`] each
-//! frame while it plays.
-
-use eframe::egui;
+//! real `Player`; this module only carries `Preview`/`StopPreview` commands — driving an
+//! actual `Player` instance from them and writing the playhead position back into
+//! [`TrimCutSheetState::playhead_ms`] each tick is the app layer's job.
 
 use walkman_services::trim_cut::{ChannelMode, TrimCutMode, TrimCutOptions};
-
-use crate::theme::{button, color, font, glass};
-
-pub const SHEET_SIZE: egui::Vec2 = egui::vec2(760.0, 560.0);
 
 /// R14.3's three stepper increments.
 pub const STEP_MS_SMALL: u64 = 100;
@@ -42,7 +32,7 @@ pub enum TrimCutCommand {
 pub struct TrimCutSheetState {
     pub open: bool,
     pub track_id: String,
-    /// Peak samples for the waveform, normalized 0.0..=1.0. Empty until task 18 runs
+    /// Peak samples for the waveform, normalized 0.0..=1.0. Empty until the app layer runs
     /// `trim_cut::generate_waveform` for the opened track.
     pub waveform: Vec<f32>,
     pub duration_ms: u64,
@@ -152,188 +142,9 @@ pub fn fraction_to_ms(fraction: f32, duration_ms: u64) -> u64 {
     (fraction.clamp(0.0, 1.0) * duration_ms as f32).round() as u64
 }
 
-/// Renders the sheet if [`TrimCutSheetState::open`]; a no-op otherwise. Call once per frame.
-pub fn render(ctx: &egui::Context, state: &mut TrimCutSheetState) {
-    if !state.open {
-        return;
-    }
-    crate::sheets::modal(ctx, "trim_and_cut_sheet", SHEET_SIZE, |ui| {
-        ui.label(egui::RichText::new("Trim & Cut").font(font::title2()).color(color::SILVER_LIGHT));
-        ui.add_space(10.0);
-
-        render_mode_toggle(ui, state);
-        ui.add_space(10.0);
-        render_waveform(ui, state);
-        ui.add_space(10.0);
-        render_steppers(ui, state);
-        ui.add_space(10.0);
-        render_channel_routing(ui, state);
-        ui.add_space(10.0);
-        render_fades_and_gain(ui, state);
-        ui.add_space(14.0);
-        render_footer(ui, state);
-    });
-}
-
-fn render_mode_toggle(ui: &mut egui::Ui, state: &mut TrimCutSheetState) {
-    ui.horizontal(|ui| {
-        for (mode, label) in [(TrimCutMode::Trim, "Trim (Keep Selection)"), (TrimCutMode::Cut, "Cut (Remove Selection)")] {
-            let variant = if state.mode == mode { button::Variant::Capsule } else { button::Variant::Glass };
-            if ui.add(button::Button::new(label, variant)).clicked() {
-                state.mode = mode;
-            }
-        }
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if state.is_previewing {
-                if ui.add(button::Button::new("Stop", button::Variant::Destructive)).clicked() {
-                    state.is_previewing = false;
-                    state.commands.push(TrimCutCommand::StopPreview);
-                }
-            } else if ui.add(button::Button::new("Preview", button::Variant::Prominent)).clicked() {
-                state.is_previewing = true;
-                state.commands.push(TrimCutCommand::Preview);
-            }
-        });
-    });
-}
-
-const WAVEFORM_HEIGHT: f32 = 100.0;
-
-fn render_waveform(ui: &mut egui::Ui, state: &mut TrimCutSheetState) {
-    let width = ui.available_width();
-    let (rect, response) = ui.allocate_exact_size(egui::vec2(width, WAVEFORM_HEIGHT), egui::Sense::click_and_drag());
-    let painter = ui.painter_at(rect);
-    painter.rect_filled(rect, egui::Rounding::same(6.0), color::INPUT);
-
-    if !state.waveform.is_empty() {
-        let n = state.waveform.len();
-        let bar_width = (rect.width() / n as f32).max(1.0);
-        for (i, peak) in state.waveform.iter().enumerate() {
-            let x = rect.left() + i as f32 * bar_width;
-            let half_height = (peak.clamp(0.0, 1.0) * rect.height() * 0.5).max(1.0);
-            let bar = egui::Rect::from_center_size(egui::pos2(x, rect.center().y), egui::vec2(bar_width.max(1.0), half_height * 2.0));
-            painter.rect_filled(bar, 0.0, glass::white_alpha(0.5));
-        }
-    }
-
-    // Selection overlay + in/out handles.
-    let start_x = rect.left() + ms_to_fraction(state.start_ms, state.duration_ms) * rect.width();
-    let end_x = rect.left() + ms_to_fraction(state.end_ms, state.duration_ms) * rect.width();
-    let selection_rect = egui::Rect::from_min_max(egui::pos2(start_x, rect.top()), egui::pos2(end_x, rect.bottom()));
-    painter.rect_filled(selection_rect, 0.0, glass::white_alpha(0.12));
-    painter.line_segment([egui::pos2(start_x, rect.top()), egui::pos2(start_x, rect.bottom())], egui::Stroke::new(2.0, color::HIRES_GOLD));
-    painter.line_segment([egui::pos2(end_x, rect.top()), egui::pos2(end_x, rect.bottom())], egui::Stroke::new(2.0, color::HIRES_GOLD));
-
-    // Playhead.
-    let playhead_x = rect.left() + ms_to_fraction(state.playhead_ms, state.duration_ms) * rect.width();
-    painter.line_segment([egui::pos2(playhead_x, rect.top()), egui::pos2(playhead_x, rect.bottom())], egui::Stroke::new(1.5, color::SILVER_LIGHT));
-
-    // Dragging anywhere on the waveform moves whichever handle (start/end) is closer.
-    if response.dragged() || response.clicked() {
-        if let Some(pos) = response.interact_pointer_pos() {
-            let fraction = ((pos.x - rect.left()) / rect.width()).clamp(0.0, 1.0);
-            let ms = fraction_to_ms(fraction, state.duration_ms);
-            if ms.abs_diff(state.start_ms) <= ms.abs_diff(state.end_ms) {
-                state.start_ms = ms.min(state.end_ms);
-            } else {
-                state.end_ms = ms.max(state.start_ms);
-            }
-        }
-    }
-}
-
-fn render_steppers(ui: &mut egui::Ui, state: &mut TrimCutSheetState) {
-    ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("In").font(font::caption()).color(color::SILVER_MUTED));
-        ui.label(egui::RichText::new(format_ms(state.start_ms)).font(font::mono_small()).color(color::SILVER_LIGHT));
-        for (label, step) in [("-5s", STEP_MS_LARGE), ("-1s", STEP_MS_MEDIUM), ("-0.1s", STEP_MS_SMALL), ("+0.1s", STEP_MS_SMALL), ("+1s", STEP_MS_MEDIUM), ("+5s", STEP_MS_LARGE)] {
-            let delta = if label.starts_with('-') { -(step as i64) } else { step as i64 };
-            if ui.add(button::Button::new(label, button::Variant::Glass)).clicked() {
-                nudge_start(state, delta);
-            }
-        }
-        if ui.add(button::Button::new("Lock In\u{2026}", button::Variant::Glass).enabled(state.lock_to_playhead)).clicked() {
-            lock_start_to_playhead(state);
-        }
-    });
-    ui.add_space(6.0);
-    ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Out").font(font::caption()).color(color::SILVER_MUTED));
-        ui.label(egui::RichText::new(format_ms(state.end_ms)).font(font::mono_small()).color(color::SILVER_LIGHT));
-        for (label, step) in [("-5s", STEP_MS_LARGE), ("-1s", STEP_MS_MEDIUM), ("-0.1s", STEP_MS_SMALL), ("+0.1s", STEP_MS_SMALL), ("+1s", STEP_MS_MEDIUM), ("+5s", STEP_MS_LARGE)] {
-            let delta = if label.starts_with('-') { -(step as i64) } else { step as i64 };
-            if ui.add(button::Button::new(label, button::Variant::Glass)).clicked() {
-                nudge_end(state, delta);
-            }
-        }
-        if ui.add(button::Button::new("Lock Out\u{2026}", button::Variant::Glass).enabled(state.lock_to_playhead)).clicked() {
-            lock_end_to_playhead(state);
-        }
-    });
-    ui.add_space(6.0);
-    ui.checkbox(&mut state.lock_to_playhead, "Lock to Playhead");
-}
-
-fn format_ms(ms: u64) -> String {
-    format!("{:.1}s", ms as f64 / 1000.0)
-}
-
-fn render_channel_routing(ui: &mut egui::Ui, state: &mut TrimCutSheetState) {
-    ui.label(egui::RichText::new("Channel Routing").font(font::caption_bold()).color(color::SILVER_MUTED));
-    ui.horizontal(|ui| {
-        for (mode, label) in [
-            (ChannelMode::None, "None"),
-            (ChannelMode::SwapLr, "Swap L/R"),
-            (ChannelMode::Mono, "Mono"),
-            (ChannelMode::Stereo, "Stereo"),
-            (ChannelMode::IsolateLeft, "Isolate L"),
-            (ChannelMode::IsolateRight, "Isolate R"),
-            (ChannelMode::MuteLeft, "Mute L"),
-            (ChannelMode::MuteRight, "Mute R"),
-            (ChannelMode::PhaseFlip, "Phase Flip"),
-        ] {
-            let variant = if state.channel_mode == mode { button::Variant::Capsule } else { button::Variant::Glass };
-            if ui.add(button::Button::new(label, variant)).clicked() {
-                state.channel_mode = mode;
-            }
-        }
-    });
-}
-
-fn render_fades_and_gain(ui: &mut egui::Ui, state: &mut TrimCutSheetState) {
-    ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Fade In (ms)").font(font::caption()).color(color::SILVER_MUTED));
-        ui.add(egui::DragValue::new(&mut state.fade_in_ms).range(0..=u64::MAX));
-        ui.add_space(12.0);
-        ui.label(egui::RichText::new("Fade Out (ms)").font(font::caption()).color(color::SILVER_MUTED));
-        ui.add(egui::DragValue::new(&mut state.fade_out_ms).range(0..=u64::MAX));
-    });
-    ui.add_space(6.0);
-    ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Gain (dB)").font(font::caption()).color(color::SILVER_MUTED));
-        ui.add(egui::Slider::new(&mut state.gain_db, GAIN_MIN_DB..=GAIN_MAX_DB));
-    });
-}
-
-fn render_footer(ui: &mut egui::Ui, state: &mut TrimCutSheetState) {
-    ui.horizontal(|ui| {
-        if ui.add(button::Button::new("Apply", button::Variant::Prominent)).clicked() {
-            state.commands.push(TrimCutCommand::Apply { track_id: state.track_id.clone(), options: state.options() });
-            state.close();
-        }
-        ui.add_space(8.0);
-        if ui.add(button::Button::new("Cancel", button::Variant::Glass)).clicked() {
-            state.commands.push(TrimCutCommand::Cancel);
-            state.close();
-        }
-    });
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // ---- open_for / options ----
 
     #[test]
     fn open_for_selects_the_whole_track_and_resets_every_option() {
@@ -368,8 +179,6 @@ mod tests {
         assert_eq!(options.gain_db, -2.0);
     }
 
-    // ---- Nudging ----
-
     #[test]
     fn nudge_start_clamps_to_zero_and_to_end_ms() {
         let mut state = TrimCutSheetState::default();
@@ -400,8 +209,6 @@ mod tests {
         assert_eq!(state.end_ms, 2_000);
     }
 
-    // ---- Lock to playhead ----
-
     #[test]
     fn lock_start_and_end_snap_to_the_playhead_without_crossing() {
         let mut state = TrimCutSheetState::default();
@@ -418,36 +225,10 @@ mod tests {
         assert_eq!(state.end_ms, 4_000); // clamped up to start, never crosses it
     }
 
-    // ---- ms/fraction mapping ----
-
     #[test]
     fn ms_to_fraction_and_back_round_trip() {
         assert_eq!(ms_to_fraction(5_000, 10_000), 0.5);
         assert_eq!(fraction_to_ms(0.5, 10_000), 5_000);
         assert_eq!(ms_to_fraction(0, 0), 0.0); // degenerate duration never divides by zero
-    }
-
-    // ---- Headless render smoke test ----
-
-    #[test]
-    fn trim_cut_sheet_renders_in_headless_frame_for_every_state() {
-        let ctx = egui::Context::default();
-        crate::theme::install_fonts(&ctx);
-
-        let mut closed = TrimCutSheetState::default();
-        let mut open = TrimCutSheetState::default();
-        open.open_for("track.flac", 180_000);
-        open.waveform = vec![0.2, 0.8, 0.5, 0.9, 0.1];
-        let mut previewing = TrimCutSheetState::default();
-        previewing.open_for("track.flac", 180_000);
-        previewing.is_previewing = true;
-        previewing.playhead_ms = 90_000;
-
-        for state in [&mut closed, &mut open, &mut previewing] {
-            let _ = ctx.run(egui::RawInput::default(), |ctx| {
-                egui::CentralPanel::default().show(ctx, |_ui| {});
-                render(ctx, state);
-            });
-        }
     }
 }

@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "UI layer for Walkman Studio: theme tokens, reusable glass widgets, and views."
+description = "UI layer for Walkman Studio: iced design system, reusable widgets, views, and sheets."
 
 [dependencies]
 walkman-domain = { workspace = true }
@@ -13,28 +13,6 @@ walkman-platform = { workspace = true }
 log = { workspace = true }
 chrono = { workspace = true }
 
-# GUI toolkit (decision recorded in design.md: egui/eframe — pure Rust, fully
-# custom-styled, single-binary Windows deliverable).
-egui = "0.30"
-eframe = { version = "0.30", default-features = false, features = ["default_fonts", "glow", "wgpu"] }
-
-# iced migration target (see the egui-to-iced migration plan): lives alongside egui/eframe
-# above under `iced_ui` until it reaches parity, at which point the egui deps are dropped.
+# GUI toolkit (decision recorded in design.md's egui/eframe choice, superseded by the
+# egui-to-iced migration plan once the iced shell reached parity — Milestone 8).
 iced = { version = "0.13", default-features = false, features = ["wgpu", "tokio", "canvas", "image", "svg"] }
-
-[dev-dependencies]
-# Display-free RGBA image buffers for the theme snapshot tests (task 3.5). Pinned to the
-# same version the workspace already shares so the raster tests stay consistent with the
-# artwork engine (task 8.1). No GPU/windowing dependency is introduced for tests.
-image = { workspace = true }
-# Only for `now_playing`'s player-binding test, which writes a tiny throwaway `.wav`.
-tempfile = { workspace = true }
-
-[lints.rust]
-# `walkman_bundled_fonts` / `walkman_bundled_icons` are build-time cfgs set by the Windows
-# packaging step (task 19.1) once the Segoe UI / monospace font files are vendored under
-# assets/fonts/ and the Lucide glyph font under assets/icons/.
-unexpected_cfgs = { level = "warn", check-cfg = [
-    'cfg(walkman_bundled_fonts)',
-    'cfg(walkman_bundled_icons)',
-] }

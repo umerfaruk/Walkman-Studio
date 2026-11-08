@@ -1,7 +1,7 @@
 //! The floating now-playing bar + fullscreen player overlay for the iced shell, ported
 //! from `crate::now_playing` (`TrackPreviewBar.swift` / `FullScreenNowPlayingView.swift`).
 //! Reuses that module's pure types/logic unchanged — [`NowPlayingPlaceholder`],
-//! `player_bar_width`, `format_time` — and the real `walkman_services::player::Player`
+//! `format_time` — and the real `walkman_services::player::Player`
 //! binding (Milestone 7), calling its methods directly from `update()` rather than
 //! relaying through the egui version's one-shot `PlayerRequests` flags (those exist
 //! there only because egui's dispatch drains flags separately from rendering; iced's

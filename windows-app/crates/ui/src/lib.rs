@@ -1,25 +1,17 @@
-//! Walkman Studio — UI layer (egui/eframe).
-//!
-//! Holds the design system (`theme`), the application shell (`shell`), the sidebar,
-//! and the per-section views. During bootstrap (task 1 / task 2) this provides the
-//! theme tokens, the `NavTab` navigation enum, and an empty shell window so the app
-//! launches; views are added in later tasks.
+//! Walkman Studio — UI layer (iced), per Milestone 8 of the egui-to-iced migration
+//! plan. `iced_ui` holds the design system, application shell, and per-section views/
+//! sheets; the other top-level modules are the pure, framework-agnostic types/logic
+//! that both the former egui UI and the current iced UI share (nav sections, selection
+//! logic, now-playing data, inspector formatting, and every view/sheet's own enums,
+//! `*ViewState` structs, and filter/sort/group functions).
 
-pub mod detail;
 pub mod iced_ui;
 pub mod inspector;
 pub mod nav;
 pub mod now_playing;
 pub mod selection;
 pub mod sheets;
-pub mod shell;
-pub mod sidebar;
-pub mod theme;
-pub mod toolbar;
 pub mod views;
 
 pub use nav::NavTab;
-pub use now_playing::{NowPlayingPlaceholder, PlayerRequests};
-pub use shell::{layout_shell, AppState};
-pub use sidebar::{DeviceSectionMode, DriveRow, SidebarModel};
-pub use toolbar::Command;
+pub use now_playing::NowPlayingPlaceholder;
