@@ -84,10 +84,10 @@ impl App {
                 let (devices, task) =
                     lifecycle_iced::refresh_devices(&self.services, &mut self.scanned_mounts);
                 self.state.walkman_connected = !devices.is_empty();
-                self.state.device_count = devices.len();
                 if devices.is_empty() {
                     self.state.walkman_tracks.clear();
                 }
+                self.state.devices = devices;
                 task.map_or(Task::none(), |t| t.map(Message::Lifecycle))
             }
             Message::Lifecycle(lifecycle_iced::Message::WalkmanMountScanned(tracks)) => {

@@ -10,17 +10,19 @@
 use iced::widget::{button, column, container, row, text, Row, Space};
 use iced::{Border, Element, Length, Padding};
 
-use walkman_domain::models::{LocalMusicFolder, Track};
+use walkman_domain::models::{LocalMusicFolder, Track, WalkmanDevice};
 
 use crate::iced_ui::theme::{color, font, sizing};
 use crate::iced_ui::views::albums as albums_view;
 use crate::iced_ui::views::artists as artists_view;
+use crate::iced_ui::views::device_overview as device_overview_view;
 use crate::iced_ui::views::library as library_view;
 use crate::iced_ui::views::local_library as local_library_view;
 use crate::iced_ui::views::recently_added as recently_added_view;
 use crate::iced_ui::widgets;
 use crate::views::albums::AlbumsViewState;
 use crate::views::artists::ArtistsViewState;
+use crate::views::device_overview::{DeviceOverviewViewState, DeviceQuickStats};
 use crate::views::library::LibraryViewState;
 use crate::views::local_library::LocalLibraryViewState;
 use crate::views::recently_added::RecentlyAddedViewState;
@@ -35,7 +37,7 @@ pub struct AppState {
     pub nav_tab: NavTab,
     pub show_inspector: bool,
     pub walkman_connected: bool,
-    pub device_count: usize,
+    pub devices: Vec<WalkmanDevice>,
     pub local_tracks: Vec<Track>,
     pub local_folders: Vec<LocalMusicFolder>,
     pub walkman_tracks: Vec<Track>,
@@ -44,6 +46,7 @@ pub struct AppState {
     pub library_view: LibraryViewState,
     pub artists_view: ArtistsViewState,
     pub albums_view: AlbumsViewState,
+    pub device_overview_view: DeviceOverviewViewState,
 }
 
 impl Default for AppState {
@@ -53,7 +56,7 @@ impl Default for AppState {
             nav_tab: NavTab::LocalLibrary,
             show_inspector: false,
             walkman_connected: false,
-            device_count: 0,
+            devices: Vec::new(),
             local_tracks: Vec::new(),
             local_folders: Vec::new(),
             walkman_tracks: Vec::new(),
@@ -62,6 +65,7 @@ impl Default for AppState {
             library_view: LibraryViewState::default(),
             artists_view: ArtistsViewState::default(),
             albums_view: AlbumsViewState::default(),
+            device_overview_view: DeviceOverviewViewState::default(),
         }
     }
 }
@@ -75,6 +79,7 @@ pub enum Message {
     Library(library_view::Message),
     Artists(artists_view::Message),
     Albums(albums_view::Message),
+    DeviceOverview(device_overview_view::Message),
 }
 
 pub fn update(state: &mut AppState, message: Message) {
@@ -86,6 +91,7 @@ pub fn update(state: &mut AppState, message: Message) {
         Message::Library(m) => library_view::update(&mut state.library_view, m),
         Message::Artists(m) => artists_view::update(&mut state.artists_view, m),
         Message::Albums(m) => albums_view::update(&mut state.albums_view, m),
+        Message::DeviceOverview(m) => device_overview_view::update(&mut state.device_overview_view, m),
     }
 }
 
@@ -134,7 +140,7 @@ fn sidebar(state: &AppState) -> Element<'_, Message> {
     let status_line = if state.walkman_connected {
         format!(
             "{} device(s) · {} local · {} on device",
-            state.device_count,
+            state.devices.len(),
             state.local_tracks.len(),
             state.walkman_tracks.len()
         )
@@ -194,6 +200,16 @@ fn sidebar_item_style(selected: bool, status: button::Status) -> button::Style {
 }
 
 fn detail_pane(state: &AppState) -> Element<'_, Message> {
+    if state.nav_tab == NavTab::Overview {
+        let stats = walkman_services::local_library::precompute(state.walkman_tracks.clone()).stats;
+        let quick_stats = DeviceQuickStats {
+            album_count: stats.album_count,
+            artist_count: stats.artist_count,
+            hi_res_count: stats.hi_res_count,
+        };
+        return device_overview_view::view(&state.devices, quick_stats, &state.device_overview_view)
+            .map(Message::DeviceOverview);
+    }
     if state.nav_tab == NavTab::LocalLibrary {
         return local_library_view::view(&state.local_tracks, &state.local_folders, &state.local_library_view)
             .map(Message::LocalLibrary);
