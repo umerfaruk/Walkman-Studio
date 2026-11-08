@@ -13,9 +13,11 @@ use iced::{Border, Element, Length, Padding};
 use walkman_domain::models::{LocalMusicFolder, Track};
 
 use crate::iced_ui::theme::{color, font, sizing};
+use crate::iced_ui::views::library as library_view;
 use crate::iced_ui::views::local_library as local_library_view;
 use crate::iced_ui::views::recently_added as recently_added_view;
 use crate::iced_ui::widgets;
+use crate::views::library::LibraryViewState;
 use crate::views::local_library::LocalLibraryViewState;
 use crate::views::recently_added::RecentlyAddedViewState;
 use crate::NavTab;
@@ -35,6 +37,7 @@ pub struct AppState {
     pub walkman_tracks: Vec<Track>,
     pub local_library_view: LocalLibraryViewState,
     pub recently_added_view: RecentlyAddedViewState,
+    pub library_view: LibraryViewState,
 }
 
 impl Default for AppState {
@@ -50,6 +53,7 @@ impl Default for AppState {
             walkman_tracks: Vec::new(),
             local_library_view: LocalLibraryViewState::default(),
             recently_added_view: RecentlyAddedViewState::default(),
+            library_view: LibraryViewState::default(),
         }
     }
 }
@@ -60,6 +64,7 @@ pub enum Message {
     ToggleInspector,
     LocalLibrary(local_library_view::Message),
     RecentlyAdded(recently_added_view::Message),
+    Library(library_view::Message),
 }
 
 pub fn update(state: &mut AppState, message: Message) {
@@ -68,6 +73,7 @@ pub fn update(state: &mut AppState, message: Message) {
         Message::ToggleInspector => state.show_inspector = !state.show_inspector,
         Message::LocalLibrary(m) => local_library_view::update(&mut state.local_library_view, m),
         Message::RecentlyAdded(m) => recently_added_view::update(&mut state.recently_added_view, m),
+        Message::Library(m) => library_view::update(&mut state.library_view, m),
     }
 }
 
@@ -183,6 +189,9 @@ fn detail_pane(state: &AppState) -> Element<'_, Message> {
     if state.nav_tab == NavTab::RecentlyAdded {
         return recently_added_view::view(&state.walkman_tracks, &state.recently_added_view)
             .map(Message::RecentlyAdded);
+    }
+    if state.nav_tab == NavTab::Library {
+        return library_view::view(&state.walkman_tracks, &state.library_view).map(Message::Library);
     }
 
     container(column![
