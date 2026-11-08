@@ -55,7 +55,7 @@ pub fn section_note(nav_tab: NavTab) -> &'static str {
         // --- Tools ---
         NavTab::Duplicates => "Duplicate finder — DuplicatesView (task 17.2, done).",
         NavTab::Transfer => "Transfer & convert queue — TransferQueueView (task 17.1, done).",
-        NavTab::BackupRestore => "Backup & restore — BackupRestoreView (task 17.4).",
+        NavTab::BackupRestore => "Backup & restore — BackupRestoreView (task 17.4, done).",
     }
 }
 
@@ -121,7 +121,7 @@ pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
             crate::views::playlists::render(ui, &state.playlists, &state.walkman_tracks, &mut state.playlists_view);
         }
         NavTab::BackupRestore => {
-            section_placeholder(ui, section_title(tab), section_note(tab));
+            crate::views::backup_restore::render(ui, &state.walkman_tracks, &mut state.backup_restore_view);
         }
     }
 }

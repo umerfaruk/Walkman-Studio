@@ -878,9 +878,26 @@ verification.
       selection-change cases, and a headless-frame render across every sheet variant); wired
       into `detail.rs`'s `NavTab::Playlists` arm and new `AppState::playlists`/
       `playlists_view` fields.
-  - [~] 17.4 Implement `BackupRestoreView`: Backup/Restore modes, 5 scopes + Album/Track filters,
+  - [x] 17.4 Implement `BackupRestoreView`: Backup/Restore modes, 5 scopes + Album/Track filters,
         destination picker, passphrase field, progress + cancel.
     - _Requirements: 12.1, 12.2, 12.3, 12.5_
+    - Progress: `ui/src/views/backup_restore.rs`, over the real `walkman_services::
+      backup_restore::BackupScope` (task 11.2) — the 5 real scope variants, not a parallel
+      enum. Selected-Albums/Selected-Tracks scopes reuse `albums::group_into_albums` (task
+      14.4) for their checklist rather than a second grouping; the Album/Track filter toggle
+      only shows that checklist when `Selected` is picked, matching R12.2's "`All Albums`/
+      `Selected`" wording. The destination/restore-source picker is a text field + "Browse…"
+      button that emits `PickDestination`/`PickRestoreSource` (the real native folder dialog
+      is `platform::FileDialogs`, task 6.6, wired by task 18 — this view only displays
+      whatever path comes back); the passphrase field only appears when "Encrypt" is
+      checked. `Start Backup`/`Start Restore` are disabled until a destination/source is set
+      and any required selection is non-empty. Progress + Cancel reuse the exact same
+      `egui::ProgressBar` pattern as 17.1's `TransferSyncSheet`, populated externally by
+      whichever task-18 code runs `create_unencrypted_backup`/`create_encrypted_backup`/
+      `restore_*_backup`. 3 new tests (scope-label distinctness, default state, and a
+      headless-frame render across backup/restore/selected-filter/in-progress/encrypted
+      states); wired into `detail.rs`'s `NavTab::BackupRestore` arm and a new
+      `AppState::backup_restore_view` field.
   - [~] 17.5 Implement `TrimAndCutSheet`: waveform scrubber + in/out handles, Trim/Cut modes, ms
         steppers (±0.1/±1/±5s) + lock-to-playhead, channel routing (swap/mono/stereo/isolate L/R/
         phase), fades + gain, preview playback.
@@ -972,7 +989,7 @@ verification.
   `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
   dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
   bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo test
-  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 429 tests) —
+  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 432 tests) —
   including task 13's player tests against this host's *real* audio output device (not mocked),
   task 15.1's test that the now-playing bar mirrors that same real, bound `Player`, and task
   14/15/16's headless-egui-frame render tests across every view/mode/sheet/carousel-position/

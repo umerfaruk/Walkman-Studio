@@ -81,6 +81,11 @@ pub struct AppState {
     /// selection, sheet, emitted commands).
     pub playlists_view: crate::views::playlists::PlaylistsViewState,
 
+    // --- Backup & Restore view state (task 17.4) ---
+    /// `BackupRestoreView`'s own UI state (mode, scope, filters, destination, passphrase,
+    /// progress, emitted commands).
+    pub backup_restore_view: crate::views::backup_restore::BackupRestoreViewState,
+
     // --- Sidebar visibility drivers (task 4.2) ---
     //
     // These are MINIMAL scalar placeholders that drive the sidebar's visibility rules and
@@ -261,6 +266,7 @@ impl Default for AppState {
             duplicates_view: crate::views::duplicates::DuplicatesViewState::default(),
             playlists: Vec::new(),
             playlists_view: crate::views::playlists::PlaylistsViewState::default(),
+            backup_restore_view: crate::views::backup_restore::BackupRestoreViewState::default(),
 
             // No Walkman attached until a device event fires (task 9); the sidebar opens
             // in its disconnected state.

@@ -2,6 +2,7 @@
 
 pub mod library;
 pub mod albums;
+pub mod backup_restore;
 pub mod device_overview;
 pub mod duplicates;
 pub mod artists;
