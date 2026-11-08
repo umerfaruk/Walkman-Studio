@@ -10,6 +10,8 @@ use crate::iced_ui::widgets::glass;
 pub mod about;
 pub mod clean_eject;
 pub mod lyrics_editor;
+pub mod song_metadata;
+pub mod transfer_item;
 
 /// A centered modal: a dimmed full-screen backdrop plus a [`glass::modal_glass_chassis`]
 /// panel sized `width`×`height`. Callers overlay this on top of the base content via
