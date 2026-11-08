@@ -5,6 +5,7 @@ use eframe::egui;
 use crate::theme::{color, font, glass};
 
 pub mod album_metadata;
+pub mod batch_lyrics;
 pub mod song_metadata;
 pub mod transfer_item;
 pub mod trim_cut;

@@ -61,6 +61,11 @@ pub struct AppState {
     /// (`trim_cut::generate_waveform`) and duration, so — unlike 16.1's direct drain — task
     /// 18 populates it and flips `open` itself rather than this crate draining it blind.
     pub trim_cut_sheet: crate::sheets::trim_cut::TrimCutSheetState,
+    /// `BatchLyricsGeneratorSheet`'s own UI state (task 17.6), opened from any of the 7
+    /// views' `BatchLyrics` command — the same "needs a real service call first" deferral
+    /// as `trim_cut_sheet` (task 18 drives `lyrics::fetch_batch_async` and streams results
+    /// in, rather than this crate auto-opening it blind).
+    pub batch_lyrics_sheet: crate::sheets::batch_lyrics::BatchLyricsGeneratorState,
 
     // --- Transfer & Convert queue data + state (task 17.1) ---
     /// Every queued transfer item. Empty until task 18 wires the real `TransferQueue` in.
@@ -267,6 +272,7 @@ impl Default for AppState {
             album_editor: crate::sheets::album_metadata::AlbumEditorState::default(),
             transfer_item_editor: crate::sheets::transfer_item::TransferItemEditorState::default(),
             trim_cut_sheet: crate::sheets::trim_cut::TrimCutSheetState::default(),
+            batch_lyrics_sheet: crate::sheets::batch_lyrics::BatchLyricsGeneratorState::default(),
             transfer_queue_items: Vec::new(),
             transfer_queue_view: crate::views::transfer_queue::TransferQueueViewState::default(),
             duplicates_view: crate::views::duplicates::DuplicatesViewState::default(),
@@ -473,6 +479,23 @@ pub fn layout_shell(ctx: &egui::Context, state: &mut AppState) {
     crate::sheets::album_metadata::render(ctx, &mut state.album_editor);
     crate::sheets::transfer_item::render(ctx, &mut state.transfer_item_editor);
     crate::sheets::trim_cut::render(ctx, &mut state.trim_cut_sheet);
+
+    // The batch lyrics generator sheet is shared across every view that can launch it
+    // (R15.2); until task 18 wires per-view selection into a single hand-off point, the
+    // "All Tracks in View"/"Active Item" scopes resolve against `walkman_tracks`/
+    // `selected_track_id` and "Selected Track(s)" is empty (no cross-view selection model
+    // exists yet) — `missing_lyrics_ids` stays empty for the same reason R15.5's real lyrics
+    // presence check (task 18) doesn't exist yet either.
+    let all_in_view_ids: Vec<String> = state.walkman_tracks.iter().map(|t| t.id().to_owned()).collect();
+    crate::sheets::batch_lyrics::render(
+        ctx,
+        &state.walkman_tracks,
+        &all_in_view_ids,
+        &[],
+        state.selected_track_id.as_deref(),
+        &[],
+        &mut state.batch_lyrics_sheet,
+    );
 }
 
 #[cfg(test)]

@@ -924,10 +924,28 @@ verification.
       stays queued for task 18 to populate the real waveform/duration and open this sheet —
       unlike 16.1's inspector `Edit`, opening this one needs a real `generate_waveform` call,
       so it isn't safe to auto-drain blind the way the inspector's was.
-  - [~] 17.6 Implement `BatchLyricsGeneratorSheet`: launch from all 7 views, scopes (All in View /
+  - [x] 17.6 Implement `BatchLyricsGeneratorSheet`: launch from all 7 views, scopes (All in View /
         Selected / Active Item / Choose Specific… checklist with search + Select/Deselect All +
         counts + missing diagnostics), live progress/speed/ETA, metric pills, filterable results.
     - _Requirements: 15.2, 15.3_
+    - Progress: `ui/src/sheets/batch_lyrics.rs`, over the real `walkman_services::lyrics::
+      {LyricsOutcome, LyricsOutcomeKind, LyricsBatchCounts, tally}` (task 12.2) — `tally()`
+      itself computes the 4 metric-pill counts, not re-derived. One sheet is shared by every
+      one of the 7 views that can launch it (each already emits its own `BatchLyrics(ids)`
+      command from tasks 14.1-14.7/17.3); `resolve_track_ids()` turns whichever of the 4
+      scopes is picked into a concrete id list from whatever `all_in_view`/`selected`/
+      `active_item` context the caller passes in, so the sheet itself has no per-view
+      knowledge. `items_per_second`/`eta_seconds` are pure extrapolations from a caller-fed
+      `elapsed_seconds` (this UI crate has no clock dependency of its own; whoever drives
+      `fetch_batch_async`'s channel keeps it current) and are safe at every boundary (zero
+      elapsed time, zero completed, already done). The results list is filtered by clicking
+      a metric pill (`filter_outcomes`). `shell.rs` wires it generically for now — "Selected
+      Track(s)" has no cross-view selection model yet so it resolves empty, and
+      `missing_lyrics_ids` stays empty since R15.5's real lyrics-presence check is task 18's
+      job — both honest placeholders until task 18 gives each view a proper hand-off. 6 new
+      tests (every scope's resolution, speed/ETA at their edge cases, metric filtering, the
+      open-resets-stale-results guarantee, and a headless-frame render across scope-picker/
+      choose-specific/running/finished states); wired into `AppState::batch_lyrics_sheet`.
   - [~] 17.7 Implement `CleanEjectSheet`, `AboutWalkmanStudioView` (hardware / supported DAPs /
         credits tabs), `ManageLocalFoldersSheet`, `AndroidWalkmanMtpHelpSheet`, and
         `DuplicateImportGuardSheet`.
@@ -1011,7 +1029,7 @@ verification.
   `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
   dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
   bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo test
-  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 439 tests) —
+  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 445 tests) —
   including task 13's player tests against this host's *real* audio output device (not mocked),
   task 15.1's test that the now-playing bar mirrors that same real, bound `Player`, and task
   14/15/16's headless-egui-frame render tests across every view/mode/sheet/carousel-position/
