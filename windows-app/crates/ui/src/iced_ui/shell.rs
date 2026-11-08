@@ -17,6 +17,7 @@ use crate::iced_ui::views::albums as albums_view;
 use crate::iced_ui::views::artists as artists_view;
 use crate::iced_ui::views::device_overview as device_overview_view;
 use crate::iced_ui::views::hi_res as hi_res_view;
+use crate::iced_ui::views::language_study as language_study_view;
 use crate::iced_ui::views::library as library_view;
 use crate::iced_ui::views::local_library as local_library_view;
 use crate::iced_ui::views::recently_added as recently_added_view;
@@ -25,6 +26,7 @@ use crate::views::albums::AlbumsViewState;
 use crate::views::artists::ArtistsViewState;
 use crate::views::device_overview::{DeviceOverviewViewState, DeviceQuickStats};
 use crate::views::hi_res::HiResViewState;
+use crate::views::language_study::LanguageStudyViewState;
 use crate::views::library::LibraryViewState;
 use crate::views::local_library::LocalLibraryViewState;
 use crate::views::recently_added::RecentlyAddedViewState;
@@ -50,6 +52,7 @@ pub struct AppState {
     pub albums_view: AlbumsViewState,
     pub device_overview_view: DeviceOverviewViewState,
     pub hi_res_view: HiResViewState,
+    pub language_study_view: LanguageStudyViewState,
 }
 
 impl Default for AppState {
@@ -70,6 +73,7 @@ impl Default for AppState {
             albums_view: AlbumsViewState::default(),
             device_overview_view: DeviceOverviewViewState::default(),
             hi_res_view: HiResViewState::default(),
+            language_study_view: LanguageStudyViewState::default(),
         }
     }
 }
@@ -85,6 +89,7 @@ pub enum Message {
     Albums(albums_view::Message),
     DeviceOverview(device_overview_view::Message),
     HiRes(hi_res_view::Message),
+    LanguageStudy(language_study_view::Message),
 }
 
 pub fn update(state: &mut AppState, message: Message) {
@@ -98,6 +103,7 @@ pub fn update(state: &mut AppState, message: Message) {
         Message::Albums(m) => albums_view::update(&mut state.albums_view, m),
         Message::DeviceOverview(m) => device_overview_view::update(&mut state.device_overview_view, m),
         Message::HiRes(m) => hi_res_view::update(&mut state.hi_res_view, m),
+        Message::LanguageStudy(m) => language_study_view::update(&mut state.language_study_view, m),
     }
 }
 
@@ -235,6 +241,9 @@ fn detail_pane(state: &AppState) -> Element<'_, Message> {
     }
     if state.nav_tab == NavTab::HiRes {
         return hi_res_view::view(&state.walkman_tracks, &state.hi_res_view).map(Message::HiRes);
+    }
+    if state.nav_tab == NavTab::LanguageStudy {
+        return language_study_view::view(&state.walkman_tracks, &state.language_study_view).map(Message::LanguageStudy);
     }
 
     container(column![
