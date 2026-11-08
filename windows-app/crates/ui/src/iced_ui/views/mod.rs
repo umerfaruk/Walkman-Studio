@@ -14,3 +14,4 @@ pub mod library;
 pub mod local_library;
 pub mod recently_added;
 pub mod senseme;
+pub mod transfer_queue;

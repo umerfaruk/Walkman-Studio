@@ -10,7 +10,7 @@
 use iced::widget::{button, column, container, row, text, Row, Space};
 use iced::{Border, Element, Length, Padding};
 
-use walkman_domain::models::{LocalMusicFolder, Track, WalkmanDevice};
+use walkman_domain::models::{LocalMusicFolder, Track, TransferItem, WalkmanDevice};
 
 use crate::iced_ui::theme::{color, font, sizing};
 use crate::iced_ui::views::albums as albums_view;
@@ -23,6 +23,7 @@ use crate::iced_ui::views::library as library_view;
 use crate::iced_ui::views::local_library as local_library_view;
 use crate::iced_ui::views::recently_added as recently_added_view;
 use crate::iced_ui::views::senseme as senseme_view;
+use crate::iced_ui::views::transfer_queue as transfer_queue_view;
 use crate::iced_ui::widgets;
 use crate::views::albums::AlbumsViewState;
 use crate::views::artists::ArtistsViewState;
@@ -34,6 +35,7 @@ use crate::views::library::LibraryViewState;
 use crate::views::local_library::LocalLibraryViewState;
 use crate::views::recently_added::RecentlyAddedViewState;
 use crate::views::senseme::SenseMeViewState;
+use crate::views::transfer_queue::TransferQueueViewState;
 use crate::NavTab;
 
 /// Shell-level state: which section is selected, whether the inspector is open, plus the
@@ -59,6 +61,8 @@ pub struct AppState {
     pub language_study_view: LanguageStudyViewState,
     pub senseme_view: SenseMeViewState,
     pub duplicates_view: DuplicatesViewState,
+    pub transfer_queue_items: Vec<TransferItem>,
+    pub transfer_queue_view: TransferQueueViewState,
 }
 
 impl Default for AppState {
@@ -82,6 +86,8 @@ impl Default for AppState {
             language_study_view: LanguageStudyViewState::default(),
             senseme_view: SenseMeViewState::default(),
             duplicates_view: DuplicatesViewState::default(),
+            transfer_queue_items: Vec::new(),
+            transfer_queue_view: TransferQueueViewState::default(),
         }
     }
 }
@@ -100,6 +106,7 @@ pub enum Message {
     LanguageStudy(language_study_view::Message),
     SenseMe(senseme_view::Message),
     Duplicates(duplicates_view::Message),
+    TransferQueue(transfer_queue_view::Message),
 }
 
 pub fn update(state: &mut AppState, message: Message) {
@@ -116,6 +123,7 @@ pub fn update(state: &mut AppState, message: Message) {
         Message::LanguageStudy(m) => language_study_view::update(&mut state.language_study_view, m),
         Message::SenseMe(m) => senseme_view::update(&state.walkman_tracks, &mut state.senseme_view, m),
         Message::Duplicates(m) => duplicates_view::update(&mut state.duplicates_view, m),
+        Message::TransferQueue(m) => transfer_queue_view::update(&state.transfer_queue_items, &mut state.transfer_queue_view, m),
     }
 }
 
@@ -262,6 +270,9 @@ fn detail_pane(state: &AppState) -> Element<'_, Message> {
     }
     if state.nav_tab == NavTab::Duplicates {
         return duplicates_view::view(&state.walkman_tracks, &state.duplicates_view).map(Message::Duplicates);
+    }
+    if state.nav_tab == NavTab::Transfer {
+        return transfer_queue_view::view(&state.transfer_queue_items, &state.transfer_queue_view).map(Message::TransferQueue);
     }
 
     container(column![
