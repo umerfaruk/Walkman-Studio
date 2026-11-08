@@ -3,6 +3,7 @@
 pub mod library;
 pub mod albums;
 pub mod device_overview;
+pub mod duplicates;
 pub mod artists;
 pub mod hi_res;
 pub mod language_study;

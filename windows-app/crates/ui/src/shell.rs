@@ -64,6 +64,15 @@ pub struct AppState {
     /// commands).
     pub transfer_queue_view: crate::views::transfer_queue::TransferQueueViewState,
 
+    // --- Duplicates view state (task 17.2) ---
+    //
+    // Reads the same `walkman_tracks` as the Walkman-library views (R10.1 scopes comparison
+    // to one storage partition at a time; task 18 is expected to pass the active drive's
+    // tracks once there's more than one drive to choose between).
+    /// `DuplicatesView`'s own UI state (scope, sort, expanded groups, sheet, emitted
+    /// commands).
+    pub duplicates_view: crate::views::duplicates::DuplicatesViewState,
+
     // --- Sidebar visibility drivers (task 4.2) ---
     //
     // These are MINIMAL scalar placeholders that drive the sidebar's visibility rules and
@@ -241,6 +250,7 @@ impl Default for AppState {
             transfer_item_editor: crate::sheets::transfer_item::TransferItemEditorState::default(),
             transfer_queue_items: Vec::new(),
             transfer_queue_view: crate::views::transfer_queue::TransferQueueViewState::default(),
+            duplicates_view: crate::views::duplicates::DuplicatesViewState::default(),
 
             // No Walkman attached until a device event fires (task 9); the sidebar opens
             // in its disconnected state.
