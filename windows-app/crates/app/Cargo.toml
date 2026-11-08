@@ -10,6 +10,12 @@ description = "Walkman Studio for Windows — native music manager for Sony Walk
 name = "walkman-studio"
 path = "src/main.rs"
 
+# iced-based entry point, built alongside the shipping egui binary above until the
+# iced shell reaches feature parity (see the egui-to-iced migration plan).
+[[bin]]
+name = "walkman-studio-iced"
+path = "src/main_iced.rs"
+
 [dependencies]
 walkman-ui = { workspace = true }
 walkman-domain = { workspace = true }
@@ -22,3 +28,4 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 eframe = { version = "0.30", default-features = false, features = ["default_fonts", "glow", "wgpu"] }
 egui = "0.30"
+iced = { version = "0.13", default-features = false, features = ["wgpu", "tokio", "canvas", "image", "svg"] }

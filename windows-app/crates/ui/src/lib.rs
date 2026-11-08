@@ -6,6 +6,7 @@
 //! launches; views are added in later tasks.
 
 pub mod detail;
+pub mod iced_ui;
 pub mod inspector;
 pub mod nav;
 pub mod now_playing;
