@@ -75,8 +75,9 @@ impl App {
                 shell::update(&mut self.state, m);
                 Task::none()
             }
-            Message::Lifecycle(lifecycle_iced::Message::LocalLibraryLoaded(tracks)) => {
-                self.state.local_track_count = tracks.len();
+            Message::Lifecycle(lifecycle_iced::Message::LocalLibraryLoaded { folders, tracks }) => {
+                self.state.local_folders = folders;
+                self.state.local_tracks = tracks;
                 Task::none()
             }
             Message::Lifecycle(lifecycle_iced::Message::DevicePollTick) => {

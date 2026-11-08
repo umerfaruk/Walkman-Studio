@@ -10,22 +10,28 @@
 use iced::widget::{button, column, container, row, text, Row, Space};
 use iced::{Border, Element, Length, Padding};
 
+use walkman_domain::models::{LocalMusicFolder, Track};
+
 use crate::iced_ui::theme::{color, font, sizing};
+use crate::iced_ui::views::local_library as local_library_view;
 use crate::iced_ui::widgets;
+use crate::views::local_library::LocalLibraryViewState;
 use crate::NavTab;
 
 /// Shell-level state: which section is selected, whether the inspector is open, plus the
 /// handful of real counts Milestone 4's lifecycle wiring now feeds in (sidebar badges
 /// pending the view-by-view milestone). Grows as later milestones port more of the egui
 /// `AppState` (device/track data, per-view/per-sheet state, player state, …) in.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct AppState {
     pub nav_tab: NavTab,
     pub show_inspector: bool,
     pub walkman_connected: bool,
     pub device_count: usize,
-    pub local_track_count: usize,
     pub walkman_track_count: usize,
+    pub local_tracks: Vec<Track>,
+    pub local_folders: Vec<LocalMusicFolder>,
+    pub local_library_view: LocalLibraryViewState,
 }
 
 impl Default for AppState {
@@ -36,22 +42,26 @@ impl Default for AppState {
             show_inspector: false,
             walkman_connected: false,
             device_count: 0,
-            local_track_count: 0,
             walkman_track_count: 0,
+            local_tracks: Vec::new(),
+            local_folders: Vec::new(),
+            local_library_view: LocalLibraryViewState::default(),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum Message {
     NavSelected(NavTab),
     ToggleInspector,
+    LocalLibrary(local_library_view::Message),
 }
 
 pub fn update(state: &mut AppState, message: Message) {
     match message {
         Message::NavSelected(tab) => state.nav_tab = tab,
         Message::ToggleInspector => state.show_inspector = !state.show_inspector,
+        Message::LocalLibrary(m) => local_library_view::update(&mut state.local_library_view, m),
     }
 }
 
@@ -100,10 +110,12 @@ fn sidebar(state: &AppState) -> Element<'_, Message> {
     let status_line = if state.walkman_connected {
         format!(
             "{} device(s) · {} local · {} on device",
-            state.device_count, state.local_track_count, state.walkman_track_count
+            state.device_count,
+            state.local_tracks.len(),
+            state.walkman_track_count
         )
     } else {
-        format!("No device · {} local tracks", state.local_track_count)
+        format!("No device · {} local tracks", state.local_tracks.len())
     };
 
     container(column![
@@ -158,6 +170,11 @@ fn sidebar_item_style(selected: bool, status: button::Status) -> button::Style {
 }
 
 fn detail_pane(state: &AppState) -> Element<'_, Message> {
+    if state.nav_tab == NavTab::LocalLibrary {
+        return local_library_view::view(&state.local_tracks, &state.local_folders, &state.local_library_view)
+            .map(Message::LocalLibrary);
+    }
+
     container(column![
         text(state.nav_tab.title()).size(font::TITLE1.size),
         Space::new(Length::Fill, Length::Fixed(8.0)),

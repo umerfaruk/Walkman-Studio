@@ -18,7 +18,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use walkman_domain::models::{Track, WalkmanDevice};
+use walkman_domain::models::{LocalMusicFolder, Track, WalkmanDevice};
 use walkman_services::library_scanner::LibraryScanner;
 use walkman_services::walkman_engine::detect_devices;
 
@@ -29,10 +29,10 @@ pub const DEVICE_POLL_INTERVAL: Duration = Duration::from_secs(3);
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    // `list_folders()` is called for its side-effecting I/O (ensuring the DB round-trip
-    // succeeds) but nothing displays local folders yet — add a `folders` field back here
-    // once a view needs it (Milestone 5's "Manage Local Folders…" equivalent).
-    LocalLibraryLoaded(Vec<Track>),
+    LocalLibraryLoaded {
+        folders: Vec<LocalMusicFolder>,
+        tracks: Vec<Track>,
+    },
     DevicePollTick,
     WalkmanMountScanned(Vec<Track>),
 }
@@ -44,14 +44,16 @@ pub fn startup_task(services: &AppServices) -> iced::Task<Message> {
     let local_library = Arc::clone(&services.local_library);
     iced::Task::perform(
         async move {
+            let folders = local_library.list_folders().unwrap_or_default();
             let rx = local_library.rescan_all_async();
             // `rescan_all_async` already spawns its own OS thread; block *that* thread's
             // completion off the async executor's worker threads via `spawn_blocking`
             // rather than busy-polling `try_recv()` the way `lifecycle.rs` does every frame.
             let _ = tokio::task::spawn_blocking(move || rx.recv()).await;
-            local_library.tracks().unwrap_or_default()
+            let tracks = local_library.tracks().unwrap_or_default();
+            (folders, tracks)
         },
-        Message::LocalLibraryLoaded,
+        |(folders, tracks)| Message::LocalLibraryLoaded { folders, tracks },
     )
 }
 
