@@ -971,12 +971,64 @@ verification.
       headless-frame renders across every state); wired into `AppState::clean_eject_sheet`/
       `about_sheet`, both rendered from `shell.rs`.
 
-- [~] 18. Wire real-time device events and library lifecycle into the shell
+- [x] 18. Wire real-time device events and library lifecycle into the shell
   - Subscribe to `DeviceEvents` + periodic refresh to auto-detect attach/detach; trigger scans and
     off-thread precompute; keep sidebar badges, Device Overview, and the active drive/device in
     sync.
   - Implement the built-in lyrics editor (edit/paste/sync → write companion `.lrc`).
   - _Requirements: 3.6, 18.4, 15.6_
+  - Progress: this is the task where `crates/app/` stops being task 2's empty-window stub
+    and becomes a real application — `app/src/services.rs` (`AppServices::new`) opens the
+    shared `%APPDATA%\Walkman Studio\library.sqlite3` cache DB and constructs every real
+    platform/service instance (`LibraryScanner`, `LocalLibrary`, `Player`, `TransferQueue`,
+    `WindowsVolumeProvider`/`WindowsDeviceEvents`/`WindowsFileDialogs`); `app/src/
+    lifecycle.rs` (`Lifecycle::tick`, called first every frame) binds the real `Player` into
+    `AppState::player` once, loads the Local Library and kicks off its first
+    `rescan_all_async` on startup, and drains real `DeviceEvent`s plus a 3s safety-net poll
+    (R3.6) through the real `walkman_engine::detect_devices` into `AppState::devices`/
+    `walkman_connected`/`device_count`/`drives`, scanning the active drive's `MUSIC`
+    directory off-thread (the same channel pattern `rescan_all_async` established, applied
+    here to a single external mount) into `AppState::walkman_tracks` plus a `.m3u8` playlist
+    directory listing into `AppState::playlists`; `refresh_sidebar_counts` recomputes every
+    sidebar badge from `local_library::precompute`/`duplicate_finder::find_duplicates`/
+    `recently_added::ranked_tracks` (R18.4) every frame rather than only on an explicit
+    refresh, since none of those are I/O. `app/src/dispatch.rs` (`Dispatch::tick`, called
+    after `layout_shell`) is the single place that finally drains every view/sheet's
+    `commands` queue from tasks 14-17 against the real services — play/delete/trim-cut-open/
+    metadata-editor-open across all 6 track views, local-folder add/remove/relocate/rescan,
+    transfer enqueue + the pre-transfer duplicate guard + background batch transfer with
+    live progress, duplicate delete/auto-resolve, playlist create/rename/delete/add-tracks/
+    reorder, backup/restore, clean & eject, the batch lyrics generator
+    (`lyrics::fetch_batch_async`), trim & cut's `apply_trim_cut`, and the song/album/
+    transfer-item metadata editors' `Save` (via a new `audio_tagger::export_embedded_artwork`
+    alongside the existing `write_tags`). The built-in lyrics editor (R15.6) is new UI this
+    task adds — `ui/src/sheets/lyrics_editor.rs`: paste/edit plain text, tap-sync any line to
+    the live playhead, and a pure `build_lines` that falls back to the same evenly-spaced
+    `synthesize_lrc_lines` schedule the batch generator already uses for every line nobody
+    tapped (R15.4), so a save is always a strictly-ordered `.lrc` — opened from a new button
+    on the inspector's Lyrics section (task 16.1) alongside its existing `Edit…` button, and
+    written via the real `walkman_engine::write_lrc`. 6 new tests for the lyrics editor
+    (seeding, the tapped/fallback/mixed/blank-line cases for `build_lines`, and a
+    headless-frame render) plus 2 for `export_embedded_artwork` and 4 for the app crate's own
+    pure dispatch/lifecycle helpers (`active_mount_point`, `drive_row`).
+
+    **Documented gaps** (same "no internet access to verify against in this session"
+    posture already used throughout tasks 8-12's network-touching services, or a genuine
+    missing platform capability): the single-item "Search Online Metadata…"/"Find Lyrics…"
+    buttons in the song/transfer-item editors; artwork drag-and-drop import (`FileDialogs`
+    has `pick_folder`/`save_file` but no "open an existing file" method yet — there's no
+    platform API to pick an image file with); `SenseMeCommand::AnalyzeUnanalyzed` (a full
+    on-board 12-tone PCM analysis pass — `walkman_domain::senseme::analyze_pcm` exists and is
+    fully tested, decoding PCM for every unanalyzed track is a separately-sized piece of
+    work); R3.7's custom-storage-folder bridge only logs the picked path (there's no
+    `AppState` field yet to remember it across frames); and the duplicate-import guard's
+    chosen resolution isn't fed back into a second, resumed transfer pass — `KeepBoth` runs
+    unconditionally once nothing collides, and a transfer that *does* find a collision stops
+    at the guard sheet rather than resuming. `cargo test --workspace` passes in full
+    (0 failed, 462 tests), and the built `walkman-studio.exe` was run directly on this dev
+    host for several seconds with no panics or errors in its log (device detection, the
+    local-library rescan, and a real `wgpu` render all completed) — the first time any
+    binary in this port has been launched end-to-end rather than only unit-tested.
 
 - [ ] 19. Packaging and automated verification
   - [~] 19.1 Implement bundled-first binary discovery for `ffmpeg.exe`/`ffprobe.exe` and configure
@@ -1040,8 +1092,8 @@ verification.
 - Golden-byte and parity fixtures (tasks 8.5, 19.4) should be captured from the macOS app output and
   committed under `crates/*/tests/fixtures/`.
 - No audio stream is re-encoded during metadata-only operations; this is asserted in task 19.3.
-- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, and
-  17 complete; 5.2, 5.3, 6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5,
+- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+  and 18 complete; 5.2, 5.3, 6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5,
   9.1, 9.2, 9.3, 9.4, 10.1, 10.2, 10.3, 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, and every
   14.x/15.x/16.x/17.x subtask complete;
   3.1, 5.1, 5.4, 6.3, and 6.7 partially done (see per-task Progress notes). The dev host switched
@@ -1049,11 +1101,12 @@ verification.
   `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
   dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
   bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo test
-  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 449 tests) —
+  --workspace` passes in full (`app`/`domain`/`platform`/`services`/`ui`, 0 failed, 462 tests) —
   including task 13's player tests against this host's *real* audio output device (not mocked),
-  task 15.1's test that the now-playing bar mirrors that same real, bound `Player`, and task
-  14/15/16's headless-egui-frame render tests across every view/mode/sheet/carousel-position/
-  editor-state combination. 6.3
+  task 15.1's test that the now-playing bar mirrors that same real, bound `Player`, task
+  14/15/16/17's headless-egui-frame render tests across every view/mode/sheet/carousel-position/
+  editor-state combination, and task 18's real end-to-end `cargo run` of `walkman-studio.exe`
+  itself (see task 18's own Progress note). 6.3
   and 6.7 stay `[~]` because they're intentionally partial (poll-only device events; no
   artwork/command callbacks yet); task 8.5 is checked off despite a known, documented gap (no
   real macOS-app-captured golden-byte fixtures exist in this repo, so the writers are

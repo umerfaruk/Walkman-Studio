@@ -4487,10 +4487,12 @@ name = "walkman-studio"
 version = "3.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "eframe",
  "egui",
  "env_logger",
  "log",
+ "uuid",
  "walkman-domain",
  "walkman-platform",
  "walkman-services",

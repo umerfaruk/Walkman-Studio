@@ -23,6 +23,7 @@ use crate::theme::{button, color, font, glass};
 #[derive(Debug, Clone, PartialEq)]
 pub enum InspectorCommand {
     EditRequested(String),
+    EditLyricsRequested(String),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -86,7 +87,14 @@ fn render_track(ui: &mut egui::Ui, track: &Track, device_lyrics: Option<&str>, s
         }
 
         ui.add_space(18.0);
-        section_header(ui, "Lyrics");
+        ui.horizontal(|ui| {
+            section_header(ui, "Lyrics");
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.add(button::Button::new("Edit\u{2026}", button::Variant::Glass)).clicked() {
+                    state.commands.push(InspectorCommand::EditLyricsRequested(track.id().to_owned()));
+                }
+            });
+        });
         match device_lyrics {
             Some(text) if !text.trim().is_empty() => {
                 ui.label(egui::RichText::new(text).font(font::body()).color(color::SILVER_LIGHT));

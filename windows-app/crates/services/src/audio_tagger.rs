@@ -200,6 +200,18 @@ fn write_m4a_tags_via_ffmpeg(path: &Path, fields: &TagFields<'_>) -> Result<()> 
     Ok(())
 }
 
+/// Extracts whatever artwork is already embedded in `path` and writes it out to `dest`
+/// unmodified (R13.3's artwork export-to-PC) — the embedded bytes are already a compliant
+/// JPEG from however they were originally embedded, so this never re-encodes.
+pub fn export_embedded_artwork(path: &Path, dest: &Path) -> Result<()> {
+    let tagged_file = Probe::open(path).map_err(|e| AppError::Tag(e.to_string()))?.read().map_err(|e| AppError::Tag(e.to_string()))?;
+    let tag = tagged_file.primary_tag().or_else(|| tagged_file.first_tag());
+    let Some(picture) = tag.and_then(|t| t.pictures().first()) else {
+        return Err(AppError::Tag("no embedded artwork".into()));
+    };
+    crate::artwork::export_to_file(picture.data(), dest)
+}
+
 /// Reads `path`'s tags and audio properties (see the module doc for the native/`lofty` split).
 pub fn read_metadata(path: &Path) -> Result<AudioFileMetadata> {
     let ext = extension_lower(path);
@@ -335,6 +347,31 @@ mod tests {
             .duration_since(original_modified)
             .unwrap_or_else(|e| e.duration());
         assert!(delta < std::time::Duration::from_secs(1), "modified time should be restored, drifted by {delta:?}");
+    }
+
+    #[test]
+    fn export_embedded_artwork_writes_out_the_picture_bytes_embedded_by_write_tags() {
+        use image::{DynamicImage, Rgb, RgbImage};
+
+        let jpeg = crate::artwork::encode_baseline_jpeg_from_image(&DynamicImage::ImageRgb8(RgbImage::from_pixel(4, 4, Rgb([200, 100, 50])))).unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let audio_path = dir.path().join("song.flac");
+        std::fs::write(&audio_path, minimal_flac_with_tags("Title")).unwrap();
+        write_tags(&audio_path, &TagFields { title: "Title", artwork_jpeg: Some(&jpeg), ..Default::default() }).unwrap();
+
+        let export_path = dir.path().join("exported.jpg");
+        export_embedded_artwork(&audio_path, &export_path).unwrap();
+
+        assert_eq!(std::fs::read(&export_path).unwrap(), jpeg);
+    }
+
+    #[test]
+    fn export_embedded_artwork_errors_when_the_file_has_no_picture() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("song.flac");
+        std::fs::write(&path, minimal_flac_with_tags("Title")).unwrap();
+        assert!(export_embedded_artwork(&path, &dir.path().join("out.jpg")).is_err());
     }
 
     #[test]

@@ -66,6 +66,9 @@ pub struct AppState {
     /// as `trim_cut_sheet` (task 18 drives `lyrics::fetch_batch_async` and streams results
     /// in, rather than this crate auto-opening it blind).
     pub batch_lyrics_sheet: crate::sheets::batch_lyrics::BatchLyricsGeneratorState,
+    /// The track ids a view's own `BatchLyrics(ids)` command resolved, fed into
+    /// `batch_lyrics_sheet`'s `Selected` scope when task 18 opens it from that command.
+    pub batch_lyrics_preselected_ids: Vec<String>,
     /// `CleanEjectSheet`'s own UI state (task 17.7), opened from the toolbar's Eject action
     /// (task 18 wires the trigger; this sheet only renders what it's told).
     pub clean_eject_sheet: crate::sheets::clean_eject::CleanEjectSheetState,
@@ -73,6 +76,9 @@ pub struct AppState {
     /// [`AppState::about_requested`] (the sidebar button / menu command already set it in
     /// task 4.2/4.3).
     pub about_sheet: crate::sheets::about::AboutSheetState,
+    /// The built-in lyrics editor's own UI state (task 18, R15.6), opened by the inspector's
+    /// `Edit…` lyrics button.
+    pub lyrics_editor_sheet: crate::sheets::lyrics_editor::LyricsEditorState,
 
     // --- Transfer & Convert queue data + state (task 17.1) ---
     /// Every queued transfer item. Empty until task 18 wires the real `TransferQueue` in.
@@ -280,8 +286,10 @@ impl Default for AppState {
             transfer_item_editor: crate::sheets::transfer_item::TransferItemEditorState::default(),
             trim_cut_sheet: crate::sheets::trim_cut::TrimCutSheetState::default(),
             batch_lyrics_sheet: crate::sheets::batch_lyrics::BatchLyricsGeneratorState::default(),
+            batch_lyrics_preselected_ids: Vec::new(),
             clean_eject_sheet: crate::sheets::clean_eject::CleanEjectSheetState::default(),
             about_sheet: crate::sheets::about::AboutSheetState::default(),
+            lyrics_editor_sheet: crate::sheets::lyrics_editor::LyricsEditorState::default(),
             transfer_queue_items: Vec::new(),
             transfer_queue_view: crate::views::transfer_queue::TransferQueueViewState::default(),
             duplicates_view: crate::views::duplicates::DuplicatesViewState::default(),
@@ -440,6 +448,13 @@ pub fn layout_shell(ctx: &egui::Context, state: &mut AppState) {
                     state.song_editor.open_for(&track);
                 }
             }
+            crate::inspector::InspectorCommand::EditLyricsRequested(track_id) => {
+                let track = state.walkman_tracks.iter().chain(state.local_tracks.iter()).find(|t| t.id() == track_id).cloned();
+                if let Some(track) = track {
+                    let existing = state.inspector_lyrics.clone().unwrap_or_default();
+                    state.lyrics_editor_sheet.open_for(&track.id().to_owned(), track.duration_seconds, &existing);
+                }
+            }
         }
     }
 
@@ -499,6 +514,8 @@ pub fn layout_shell(ctx: &egui::Context, state: &mut AppState) {
     }
     crate::sheets::about::render(ctx, &state.devices, &mut state.about_sheet);
     crate::sheets::clean_eject::render(ctx, &mut state.clean_eject_sheet);
+    let playhead_seconds = state.now_playing.as_ref().map(|t| t.position_secs).unwrap_or(0.0);
+    crate::sheets::lyrics_editor::render(ctx, playhead_seconds, &mut state.lyrics_editor_sheet);
 
     // The batch lyrics generator sheet is shared across every view that can launch it
     // (R15.2); until task 18 wires per-view selection into a single hand-off point, the
@@ -511,7 +528,7 @@ pub fn layout_shell(ctx: &egui::Context, state: &mut AppState) {
         ctx,
         &state.walkman_tracks,
         &all_in_view_ids,
-        &[],
+        &state.batch_lyrics_preselected_ids,
         state.selected_track_id.as_deref(),
         &[],
         &mut state.batch_lyrics_sheet,
