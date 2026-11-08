@@ -29,8 +29,8 @@ pub const BACKGROUND: Color = OBSIDIAN;
 /// #18191D — minimal card / surface.
 pub const CARD: Color = rgb(24, 25, 29);
 pub const SURFACE: Color = CARD;
-/// #212126 — card hover.
-pub const CARD_HOVER: Color = rgb(33, 33, 38);
+/// #202126 — card hover.
+pub const CARD_HOVER: Color = rgb(32, 33, 38);
 /// #141519 — input field fill.
 pub const INPUT: Color = rgb(20, 21, 25);
 /// Border = white @ 8% opacity (per `Theme.swift`; the egui port's `BORDER` constant
