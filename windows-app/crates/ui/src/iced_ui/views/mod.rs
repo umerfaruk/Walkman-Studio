@@ -7,6 +7,7 @@
 pub mod albums;
 pub mod artists;
 pub mod device_overview;
+pub mod hi_res;
 pub mod library;
 pub mod local_library;
 pub mod recently_added;
