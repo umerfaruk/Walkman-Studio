@@ -7,9 +7,9 @@
 
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
-use iced::widget::container;
-use iced::{Background, Element, Length, Size, Task, Theme};
-use walkman_ui::iced_ui::theme::{color, sizing};
+use iced::{Element, Size, Task, Theme};
+use walkman_ui::iced_ui::shell;
+use walkman_ui::iced_ui::theme::sizing;
 
 fn main() -> iced::Result {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
@@ -24,21 +24,26 @@ fn main() -> iced::Result {
         .run_with(App::new)
 }
 
-#[derive(Debug, Clone)]
-enum Message {}
-
-struct App;
+struct App {
+    state: shell::AppState,
+}
 
 impl App {
-    fn new() -> (Self, Task<Message>) {
-        (App, Task::none())
+    fn new() -> (Self, Task<shell::Message>) {
+        (
+            App {
+                state: shell::AppState::default(),
+            },
+            Task::none(),
+        )
     }
 
     fn title(&self) -> String {
         "Walkman Studio".to_string()
     }
 
-    fn update(&mut self, _message: Message) -> Task<Message> {
+    fn update(&mut self, message: shell::Message) -> Task<shell::Message> {
+        shell::update(&mut self.state, message);
         Task::none()
     }
 
@@ -46,17 +51,7 @@ impl App {
         Theme::Dark
     }
 
-    fn view(&self) -> Element<'_, Message> {
-        container(iced::widget::text("Walkman Studio").size(22))
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .center_x(Length::Fill)
-            .center_y(Length::Fill)
-            .style(|_theme| container::Style {
-                background: Some(Background::Color(color::BACKGROUND)),
-                text_color: Some(color::SILVER_LIGHT),
-                ..container::Style::default()
-            })
-            .into()
+    fn view(&self) -> Element<'_, shell::Message> {
+        shell::view(&self.state)
     }
 }
