@@ -27,6 +27,8 @@ use crate::iced_ui::views::recently_added as recently_added_view;
 use crate::iced_ui::views::senseme as senseme_view;
 use crate::iced_ui::views::transfer_queue as transfer_queue_view;
 use crate::iced_ui::sheets::about as about_sheet_view;
+use crate::iced_ui::sheets::clean_eject as clean_eject_view;
+use crate::iced_ui::sheets::lyrics_editor as lyrics_editor_view;
 use crate::iced_ui::widgets;
 use crate::views::albums::AlbumsViewState;
 use crate::views::artists::ArtistsViewState;
@@ -38,6 +40,8 @@ use crate::views::language_study::LanguageStudyViewState;
 use crate::views::library::LibraryViewState;
 use crate::views::local_library::LocalLibraryViewState;
 use crate::sheets::about::AboutSheetState;
+use crate::sheets::clean_eject::CleanEjectSheetState;
+use crate::sheets::lyrics_editor::LyricsEditorState;
 use crate::views::playlists::PlaylistsViewState;
 use crate::views::recently_added::RecentlyAddedViewState;
 use crate::views::senseme::SenseMeViewState;
@@ -73,6 +77,9 @@ pub struct AppState {
     pub playlists: Vec<Playlist>,
     pub playlists_view: PlaylistsViewState,
     pub about_sheet: AboutSheetState,
+    pub clean_eject_sheet: CleanEjectSheetState,
+    pub lyrics_editor_sheet: LyricsEditorState,
+    pub lyrics_editor_content: iced::widget::text_editor::Content,
 }
 
 impl Default for AppState {
@@ -102,6 +109,9 @@ impl Default for AppState {
             playlists: Vec::new(),
             playlists_view: PlaylistsViewState::default(),
             about_sheet: AboutSheetState::default(),
+            clean_eject_sheet: CleanEjectSheetState::default(),
+            lyrics_editor_sheet: LyricsEditorState::default(),
+            lyrics_editor_content: iced::widget::text_editor::Content::new(),
         }
     }
 }
@@ -112,6 +122,8 @@ pub enum Message {
     ToggleInspector,
     AboutOpenClicked,
     AboutSheet(about_sheet_view::Message),
+    CleanEjectSheet(clean_eject_view::Message),
+    LyricsEditorSheet(lyrics_editor_view::Message),
     LocalLibrary(local_library_view::Message),
     RecentlyAdded(recently_added_view::Message),
     Library(library_view::Message),
@@ -133,6 +145,12 @@ pub fn update(state: &mut AppState, message: Message) {
         Message::ToggleInspector => state.show_inspector = !state.show_inspector,
         Message::AboutOpenClicked => state.about_sheet.open(),
         Message::AboutSheet(m) => about_sheet_view::update(&mut state.about_sheet, m),
+        Message::CleanEjectSheet(m) => clean_eject_view::update(&mut state.clean_eject_sheet, m),
+        Message::LyricsEditorSheet(m) => {
+            // No player binding yet (Milestone 7), so the playhead used by "Tap" is a
+            // placeholder zero until the now-playing bar wiring lands.
+            lyrics_editor_view::update(&mut state.lyrics_editor_sheet, &mut state.lyrics_editor_content, 0.0, m)
+        }
         Message::LocalLibrary(m) => local_library_view::update(&mut state.local_library_view, m),
         Message::RecentlyAdded(m) => recently_added_view::update(&mut state.recently_added_view, m),
         Message::Library(m) => library_view::update(&mut state.library_view, m),
@@ -177,6 +195,12 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
 
     if let Some(sheet) = about_sheet_view::view(&state.devices, &state.about_sheet) {
         layers = layers.push(sheet.map(Message::AboutSheet));
+    }
+    if let Some(sheet) = clean_eject_view::view(&state.clean_eject_sheet) {
+        layers = layers.push(sheet.map(Message::CleanEjectSheet));
+    }
+    if let Some(sheet) = lyrics_editor_view::view(&state.lyrics_editor_sheet, &state.lyrics_editor_content) {
+        layers = layers.push(sheet.map(Message::LyricsEditorSheet));
     }
 
     layers.into()

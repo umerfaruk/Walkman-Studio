@@ -8,6 +8,8 @@ use crate::iced_ui::theme::{color, font};
 use crate::iced_ui::widgets::glass;
 
 pub mod about;
+pub mod clean_eject;
+pub mod lyrics_editor;
 
 /// A centered modal: a dimmed full-screen backdrop plus a [`glass::modal_glass_chassis`]
 /// panel sized `width`×`height`. Callers overlay this on top of the base content via
