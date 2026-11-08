@@ -15,6 +15,7 @@ use walkman_domain::models::{LocalMusicFolder, Track, TransferItem, WalkmanDevic
 use crate::iced_ui::theme::{color, font, sizing};
 use crate::iced_ui::views::albums as albums_view;
 use crate::iced_ui::views::artists as artists_view;
+use crate::iced_ui::views::backup_restore as backup_restore_view;
 use crate::iced_ui::views::device_overview as device_overview_view;
 use crate::iced_ui::views::duplicates as duplicates_view;
 use crate::iced_ui::views::hi_res as hi_res_view;
@@ -27,6 +28,7 @@ use crate::iced_ui::views::transfer_queue as transfer_queue_view;
 use crate::iced_ui::widgets;
 use crate::views::albums::AlbumsViewState;
 use crate::views::artists::ArtistsViewState;
+use crate::views::backup_restore::BackupRestoreViewState;
 use crate::views::device_overview::{DeviceOverviewViewState, DeviceQuickStats};
 use crate::views::duplicates::DuplicatesViewState;
 use crate::views::hi_res::HiResViewState;
@@ -63,6 +65,7 @@ pub struct AppState {
     pub duplicates_view: DuplicatesViewState,
     pub transfer_queue_items: Vec<TransferItem>,
     pub transfer_queue_view: TransferQueueViewState,
+    pub backup_restore_view: BackupRestoreViewState,
 }
 
 impl Default for AppState {
@@ -88,6 +91,7 @@ impl Default for AppState {
             duplicates_view: DuplicatesViewState::default(),
             transfer_queue_items: Vec::new(),
             transfer_queue_view: TransferQueueViewState::default(),
+            backup_restore_view: BackupRestoreViewState::default(),
         }
     }
 }
@@ -107,6 +111,7 @@ pub enum Message {
     SenseMe(senseme_view::Message),
     Duplicates(duplicates_view::Message),
     TransferQueue(transfer_queue_view::Message),
+    BackupRestore(backup_restore_view::Message),
 }
 
 pub fn update(state: &mut AppState, message: Message) {
@@ -124,6 +129,7 @@ pub fn update(state: &mut AppState, message: Message) {
         Message::SenseMe(m) => senseme_view::update(&state.walkman_tracks, &mut state.senseme_view, m),
         Message::Duplicates(m) => duplicates_view::update(&mut state.duplicates_view, m),
         Message::TransferQueue(m) => transfer_queue_view::update(&state.transfer_queue_items, &mut state.transfer_queue_view, m),
+        Message::BackupRestore(m) => backup_restore_view::update(&state.walkman_tracks, &mut state.backup_restore_view, m),
     }
 }
 
@@ -273,6 +279,9 @@ fn detail_pane(state: &AppState) -> Element<'_, Message> {
     }
     if state.nav_tab == NavTab::Transfer {
         return transfer_queue_view::view(&state.transfer_queue_items, &state.transfer_queue_view).map(Message::TransferQueue);
+    }
+    if state.nav_tab == NavTab::BackupRestore {
+        return backup_restore_view::view(&state.walkman_tracks, &state.backup_restore_view).map(Message::BackupRestore);
     }
 
     container(column![
