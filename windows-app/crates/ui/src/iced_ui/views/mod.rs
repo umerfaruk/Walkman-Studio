@@ -12,3 +12,4 @@ pub mod language_study;
 pub mod library;
 pub mod local_library;
 pub mod recently_added;
+pub mod senseme;
