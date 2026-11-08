@@ -13,10 +13,12 @@ use iced::{Border, Element, Length, Padding};
 use walkman_domain::models::{LocalMusicFolder, Track};
 
 use crate::iced_ui::theme::{color, font, sizing};
+use crate::iced_ui::views::artists as artists_view;
 use crate::iced_ui::views::library as library_view;
 use crate::iced_ui::views::local_library as local_library_view;
 use crate::iced_ui::views::recently_added as recently_added_view;
 use crate::iced_ui::widgets;
+use crate::views::artists::ArtistsViewState;
 use crate::views::library::LibraryViewState;
 use crate::views::local_library::LocalLibraryViewState;
 use crate::views::recently_added::RecentlyAddedViewState;
@@ -38,6 +40,7 @@ pub struct AppState {
     pub local_library_view: LocalLibraryViewState,
     pub recently_added_view: RecentlyAddedViewState,
     pub library_view: LibraryViewState,
+    pub artists_view: ArtistsViewState,
 }
 
 impl Default for AppState {
@@ -54,6 +57,7 @@ impl Default for AppState {
             local_library_view: LocalLibraryViewState::default(),
             recently_added_view: RecentlyAddedViewState::default(),
             library_view: LibraryViewState::default(),
+            artists_view: ArtistsViewState::default(),
         }
     }
 }
@@ -65,6 +69,7 @@ pub enum Message {
     LocalLibrary(local_library_view::Message),
     RecentlyAdded(recently_added_view::Message),
     Library(library_view::Message),
+    Artists(artists_view::Message),
 }
 
 pub fn update(state: &mut AppState, message: Message) {
@@ -74,6 +79,7 @@ pub fn update(state: &mut AppState, message: Message) {
         Message::LocalLibrary(m) => local_library_view::update(&mut state.local_library_view, m),
         Message::RecentlyAdded(m) => recently_added_view::update(&mut state.recently_added_view, m),
         Message::Library(m) => library_view::update(&mut state.library_view, m),
+        Message::Artists(m) => artists_view::update(&mut state.artists_view, m),
     }
 }
 
@@ -192,6 +198,9 @@ fn detail_pane(state: &AppState) -> Element<'_, Message> {
     }
     if state.nav_tab == NavTab::Library {
         return library_view::view(&state.walkman_tracks, &state.library_view).map(Message::Library);
+    }
+    if state.nav_tab == NavTab::Artists {
+        return artists_view::view(&state.walkman_tracks, &state.artists_view).map(Message::Artists);
     }
 
     container(column![
