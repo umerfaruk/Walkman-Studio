@@ -54,7 +54,7 @@ pub fn section_note(nav_tab: NavTab) -> &'static str {
         NavTab::Overview => "Device overview & storage — DeviceOverviewView (task 14.8).",
         // --- Tools ---
         NavTab::Duplicates => "Duplicate finder — DuplicatesView (task 17.2).",
-        NavTab::Transfer => "Transfer & convert queue — TransferQueueView (task 17.1).",
+        NavTab::Transfer => "Transfer & convert queue — TransferQueueView (task 17.1, done).",
         NavTab::BackupRestore => "Backup & restore — BackupRestoreView (task 17.4).",
     }
 }
@@ -111,7 +111,10 @@ pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
         NavTab::SenseMe => {
             crate::views::senseme::render(ui, &state.walkman_tracks, &mut state.senseme_view);
         }
-        NavTab::Playlists | NavTab::Duplicates | NavTab::Transfer | NavTab::BackupRestore => {
+        NavTab::Transfer => {
+            crate::views::transfer_queue::render(ui, &state.transfer_queue_items, &mut state.transfer_queue_view);
+        }
+        NavTab::Playlists | NavTab::Duplicates | NavTab::BackupRestore => {
             section_placeholder(ui, section_title(tab), section_note(tab));
         }
     }

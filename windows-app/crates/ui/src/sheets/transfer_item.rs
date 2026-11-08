@@ -5,19 +5,14 @@
 //! online metadata/lyrics fetch as the Song Metadata Editor (task 16.2), opened from a row
 //! in the Transfer & Convert queue (task 17.1).
 //!
-//! ## Honest simplification / sequencing note
-//! `TransferQueueView` (task 17.1, which this sheet is opened from) hasn't been built yet —
-//! there is no `TransferItem` domain type to read from (only
-//! [`walkman_domain::models::TransferStatus`] exists so far). This sheet is written against
-//! a local [`TransferItemSummary`] (an id, a status, and the exact same
-//! [`crate::sheets::song_metadata::SongEditorFields`] working copy the Song editor already
-//! uses — a transfer item's editable fields are the same tag set) rather than a type that
-//! doesn't exist yet; task 17.1 is expected to construct a `TransferItemSummary` from
-//! whatever `TransferItem` it defines when it opens this sheet.
+//! Opens directly from the real `walkman_domain::models::TransferItem` task 10.2 already
+//! built (its own editable metadata fields are seeded into the same
+//! [`crate::sheets::song_metadata::SongEditorFields`] working copy the Song editor uses,
+//! since a transfer item's tag set is identical — not a parallel field set).
 
 use eframe::egui;
 
-use walkman_domain::models::TransferStatus;
+use walkman_domain::models::{TransferItem, TransferStatus};
 use walkman_services::online_metadata::MetadataCandidate;
 
 use crate::sheets::song_metadata::SongEditorFields;
@@ -26,13 +21,22 @@ use crate::theme::{button, color, font};
 
 pub const SHEET_SIZE: egui::Vec2 = egui::vec2(720.0, 600.0);
 
-/// What a `TransferQueueView` row hands this sheet when opening it for one item.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TransferItemSummary {
-    pub id: String,
-    pub status: TransferStatus,
-    pub duration_seconds: f64,
-    pub fields: SongEditorFields,
+impl SongEditorFields {
+    /// Seeds a working copy from a queued [`TransferItem`]'s editable fields (disc number
+    /// stays empty — `TransferItem` doesn't carry one either, the same writer-only gap
+    /// documented on [`SongEditorFields::from_track`]).
+    pub fn from_transfer_item(item: &TransferItem) -> Self {
+        Self {
+            title: item.title.clone(),
+            artist: item.artist.clone(),
+            album: item.album.clone(),
+            track_number: item.track_number.clone(),
+            disc_number: String::new(),
+            year: item.year.clone(),
+            genre: item.genre.clone(),
+            lyrics: item.lyrics.clone().unwrap_or_default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,12 +59,12 @@ pub struct TransferItemEditorState {
 }
 
 impl TransferItemEditorState {
-    pub fn open_for(&mut self, item: &TransferItemSummary) {
+    pub fn open_for(&mut self, item: &TransferItem) {
         self.open = true;
         self.item_id = item.id.clone();
         self.status = Some(item.status.clone());
         self.duration_seconds = item.duration_seconds;
-        self.fields = item.fields.clone();
+        self.fields = SongEditorFields::from_transfer_item(item);
         self.online_candidates.clear();
         self.lyrics_candidate = None;
     }
@@ -182,21 +186,33 @@ pub fn render(ctx: &egui::Context, state: &mut TransferItemEditorState) {
 mod tests {
     use super::*;
 
-    fn sample_item() -> TransferItemSummary {
-        TransferItemSummary {
+    fn sample_item() -> TransferItem {
+        TransferItem {
             id: "item-1".into(),
+            source_path: "D:/Downloads/song.flac".into(),
             status: TransferStatus::Pending,
+            title: "Title".into(),
+            artist: "Artist".into(),
+            album: "Album".into(),
+            track_number: "1".into(),
+            year: "2024".into(),
+            genre: "Pop".into(),
             duration_seconds: 180.0,
-            fields: SongEditorFields {
-                title: "Title".into(),
-                artist: "Artist".into(),
-                album: "Album".into(),
-                track_number: "1".into(),
-                disc_number: String::new(),
-                year: "2024".into(),
-                genre: "Pop".into(),
-                lyrics: String::new(),
-            },
+            bitrate_kbps: 900,
+            sample_rate: 44_100,
+            bits_per_sample: 16,
+            format: "FLAC".into(),
+            size_bytes: 1,
+            artwork_data: None,
+            is_artwork_optimized: false,
+            lyrics: None,
+            is_lyrics_synced: false,
+            is_fetching_online: false,
+            is_optimizing: false,
+            is_expanded: false,
+            is_duplicate_on_walkman: false,
+            duplicate_match_info: None,
+            duplicate_matched_track: None,
         }
     }
 
@@ -267,7 +283,7 @@ mod tests {
         let mut open = TransferItemEditorState::default();
         open.open_for(&sample_item());
         let mut failed = TransferItemEditorState::default();
-        failed.open_for(&TransferItemSummary { status: TransferStatus::Failed("boom".into()), ..sample_item() });
+        failed.open_for(&TransferItem { status: TransferStatus::Failed("boom".into()), ..sample_item() });
         failed.online_candidates.push(MetadataCandidate {
             title: "Match".into(),
             artist: "Match Artist".into(),

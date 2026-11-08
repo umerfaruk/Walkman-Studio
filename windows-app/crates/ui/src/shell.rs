@@ -54,8 +54,15 @@ pub struct AppState {
     /// `EditAlbumMetadata` command.
     pub album_editor: crate::sheets::album_metadata::AlbumEditorState,
     /// `TransferQueueItemEditorSheet`'s own UI state (task 16.4), opened from a
-    /// `TransferQueueView` row (task 17.1, not yet built).
+    /// `TransferQueueView` row (task 17.1).
     pub transfer_item_editor: crate::sheets::transfer_item::TransferItemEditorState,
+
+    // --- Transfer & Convert queue data + state (task 17.1) ---
+    /// Every queued transfer item. Empty until task 18 wires the real `TransferQueue` in.
+    pub transfer_queue_items: Vec<walkman_domain::models::TransferItem>,
+    /// `TransferQueueView`'s own UI state (target mode, preset, selection, sheet, emitted
+    /// commands).
+    pub transfer_queue_view: crate::views::transfer_queue::TransferQueueViewState,
 
     // --- Sidebar visibility drivers (task 4.2) ---
     //
@@ -232,6 +239,8 @@ impl Default for AppState {
             song_editor: crate::sheets::song_metadata::SongEditorState::default(),
             album_editor: crate::sheets::album_metadata::AlbumEditorState::default(),
             transfer_item_editor: crate::sheets::transfer_item::TransferItemEditorState::default(),
+            transfer_queue_items: Vec::new(),
+            transfer_queue_view: crate::views::transfer_queue::TransferQueueViewState::default(),
 
             // No Walkman attached until a device event fires (task 9); the sidebar opens
             // in its disconnected state.
@@ -386,6 +395,21 @@ pub fn layout_shell(ctx: &egui::Context, state: &mut AppState) {
             }
         }
     }
+
+    // Drain the Transfer Queue's `OpenEditor` command into the Transfer Item Editor sheet
+    // (task 16.4) — the same "opening a sheet is pure UI state" reasoning as the inspector's
+    // drain above. Every other `TransferQueueCommand` (Remove/ClearAll/StartTransfer/...)
+    // stays queued for task 18 to drain against the real `TransferQueue`/transfer services.
+    state.transfer_queue_view.commands.retain(|command| {
+        if let crate::views::transfer_queue::TransferQueueCommand::OpenEditor(item_id) = command {
+            if let Some(item) = state.transfer_queue_items.iter().find(|i| &i.id == item_id) {
+                state.transfer_item_editor.open_for(item);
+            }
+            false
+        } else {
+            true
+        }
+    });
 
     // --- Center: flexible detail pane filling the remaining width. ---
     egui::CentralPanel::default()

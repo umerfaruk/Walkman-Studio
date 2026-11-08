@@ -791,26 +791,48 @@ verification.
       render).
   - [x] 16.4 Implement `TransferQueueItemEditorSheet`: per-item tabs + online metadata/lyrics fetch.
     - _Requirements: 9.1_
-    - Progress: `ui/src/sheets/transfer_item.rs`. `TransferQueueView` (task 17.1, which opens
-      this sheet) doesn't exist yet and has no `TransferItem` type to read from — only
-      `walkman_domain::models::TransferStatus` does — so this sheet is written against a
-      local `TransferItemSummary` (an id + a `TransferStatus` + the *same*
+    - Progress: `ui/src/sheets/transfer_item.rs`, opening directly from the real
+      `walkman_domain::models::TransferItem` (task 10.2) via a new
+      `SongEditorFields::from_transfer_item` (seeding the *same*
       `song_metadata::SongEditorFields` working copy the Song editor already uses, since a
-      transfer item's editable tag set is identical) rather than inventing a parallel field
-      set task 17.1 would have to reconcile with later; task 17.1 is expected to construct a
-      `TransferItemSummary` from whatever `TransferItem` it defines. `status_label()` covers
-      every `TransferStatus` variant (including the `Skipped`/`Failed` reason text) for the
-      sheet's header. Online metadata/lyrics search reuse the identical pattern as 16.2's
-      (candidates/lyrics rendered from state, "Apply" copies fields locally, no network call
-      in this crate). 8 new tests (status labels, seeding/reset/close lifecycle, and a
-      headless-frame render across closed/pending/failed-with-results states); wired into
-      `AppState::transfer_item_editor` and rendered from `shell.rs`, ready for 17.1 to open.
+      transfer item's editable tag set is identical) rather than a parallel field set.
+      `status_label()` covers every `TransferStatus` variant (including the `Skipped`/
+      `Failed` reason text) for the sheet's header, and is re-exported from
+      `views/transfer_queue.rs` (task 17.1) so the queue's row list and this sheet never
+      drift. Online metadata/lyrics search reuse the identical pattern as 16.2's (candidates/
+      lyrics rendered from state, "Apply" copies fields locally, no network call in this
+      crate). 8 new tests (status labels, seeding/reset/close lifecycle, and a headless-frame
+      render across closed/pending/failed-with-results states); wired into
+      `AppState::transfer_item_editor` and rendered from `shell.rs`, opened by 17.1's
+      `OpenEditor` command.
 
 - [ ] 17. Build tool views and sheets
-  - [~] 17.1 Implement `TransferQueueView`: queue list with status, expandable rows, per-item editor,
+  - [x] 17.1 Implement `TransferQueueView`: queue list with status, expandable rows, per-item editor,
         preview context menu, duplicate-import guard sheet (Skip/Overwrite/Keep Both), clear-queue
         confirm, `TransferSyncSheet` progress.
     - _Requirements: 9.1, 9.5, 9.6_
+    - Progress: `ui/src/views/transfer_queue.rs`, over the real `walkman_domain::models::
+      TransferItem`/`TransferTargetMode` and `walkman_services::{transcode::Preset,
+      duplicate_guard::DuplicateResolution}` task 10 already built — no parallel queue-item
+      type. This also prompted fixing 16.4's `TransferItemEditorSheet` (committed in task 16
+      before `TransferItem` was noticed to already exist in `models.rs`) to seed its working
+      copy from the real type via a new `SongEditorFields::from_transfer_item`, dropping the
+      placeholder `TransferItemSummary` it had invented. Rows render `TransferItem::
+      is_expanded`/`is_duplicate_on_walkman`/`duplicate_match_info` directly from the real
+      struct (no separate view-local expansion map); a target-mode toggle, a 16-preset combo
+      (`preset_label`, R9.3's 4-minimum presets first), and a loudness-normalize checkbox
+      drive `StartTransfer`. `ClearConfirm` is fully local (no service round trip needed);
+      `DuplicateGuard`/`Progress` are populated externally by whichever task-18 code runs
+      `duplicate_guard::check_batch_for_duplicates`/`transfer_batch_async` and streams
+      `TransferProgress` back in — this view only renders `TransferQueueViewState::sheet`
+      exactly as told, same as every other task-14/15 view's "empty until task 18" data
+      fields. Drag-and-drop enqueueing isn't wired (same egui limitation as every import path
+      since 16.2). 4 new tests (preset-label distinctness, default state, and a headless-frame
+      render across empty/populated/every-sheet-variant combinations); wired into `detail.rs`'s
+      `NavTab::Transfer` arm and new `AppState::transfer_queue_items`/`transfer_queue_view`
+      fields, with `shell.rs` draining `OpenEditor` straight into the transfer-item editor
+      (same "opening a sheet needs no service call" reasoning as the inspector's `Edit` drain
+      from 16.1) while every other command stays queued for task 18.
   - [~] 17.2 Implement `DuplicatesView`: scope/filter picker, 4 sort options, per-group modal
         resolution, recoverable totals, audition, reveal-in-Explorer, Auto-Resolve Quality, delete
         confirms.
@@ -913,7 +935,7 @@ verification.
   `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
   dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
   bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo test
-  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 412 tests) —
+  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 416 tests) —
   including task 13's player tests against this host's *real* audio output device (not mocked),
   task 15.1's test that the now-playing bar mirrors that same real, bound `Player`, and task
   14/15/16's headless-egui-frame render tests across every view/mode/sheet/carousel-position/
