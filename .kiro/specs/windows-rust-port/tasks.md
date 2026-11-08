@@ -833,10 +833,25 @@ verification.
       fields, with `shell.rs` draining `OpenEditor` straight into the transfer-item editor
       (same "opening a sheet needs no service call" reasoning as the inspector's `Edit` drain
       from 16.1) while every other command stays queued for task 18.
-  - [~] 17.2 Implement `DuplicatesView`: scope/filter picker, 4 sort options, per-group modal
+  - [x] 17.2 Implement `DuplicatesView`: scope/filter picker, 4 sort options, per-group modal
         resolution, recoverable totals, audition, reveal-in-Explorer, Auto-Resolve Quality, delete
         confirms.
     - _Requirements: 10.4, 10.5_
+    - Progress: `ui/src/views/duplicates.rs`, over the real `duplicate_finder::{find_duplicates,
+      sort_groups, total_recoverable_bytes, DuplicateGroup}` clustering already built in task
+      11.1 — grouping/sorting/recoverable-bytes math isn't re-derived. Since `DuplicateGroup`
+      carries no id, a new `group_key()` (every member's full path, sorted and joined) gives
+      the expand/collapse state a stable identity across re-sorts within a frame. Per-group
+      "Keep Best Quality" and the toolbar's whole-library "Auto-Resolve Quality" both resolve
+      through the same `best_quality_track()` the service already exposes, so the UI never
+      decides quality itself; both go through an in-app confirm sheet first (R10.5's "native
+      confirmation dialogs" — the real OS dialog is a `platform::FileDialogs`/task 6.6
+      wiring concern for task 18, not a UI-layer one; this view only renders its own confirm
+      and emits the delete command on confirmation). Reuses `inspector::format_size` for
+      byte totals rather than a second formatter. 4 new tests (group-key stability/
+      distinctness, default state, and a headless-frame render across empty/every-sheet-
+      variant/expanded-group states); wired into `detail.rs`'s `NavTab::Duplicates` arm and a
+      new `AppState::duplicates_view` field.
   - [~] 17.3 Implement `PlaylistsView`: create/rename/delete/edit `.m3u8`, add-tracks browser modes,
         multi-select (Shift/Ctrl + header Select), reorder, floating batch action bar (Move to Top /
         Up / Down / To Bottom / remove) with instant sync.
