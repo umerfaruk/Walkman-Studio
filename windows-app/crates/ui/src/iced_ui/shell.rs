@@ -26,6 +26,7 @@ use crate::iced_ui::views::playlists as playlists_view;
 use crate::iced_ui::views::recently_added as recently_added_view;
 use crate::iced_ui::views::senseme as senseme_view;
 use crate::iced_ui::views::transfer_queue as transfer_queue_view;
+use crate::iced_ui::sheets::about as about_sheet_view;
 use crate::iced_ui::widgets;
 use crate::views::albums::AlbumsViewState;
 use crate::views::artists::ArtistsViewState;
@@ -36,6 +37,7 @@ use crate::views::hi_res::HiResViewState;
 use crate::views::language_study::LanguageStudyViewState;
 use crate::views::library::LibraryViewState;
 use crate::views::local_library::LocalLibraryViewState;
+use crate::sheets::about::AboutSheetState;
 use crate::views::playlists::PlaylistsViewState;
 use crate::views::recently_added::RecentlyAddedViewState;
 use crate::views::senseme::SenseMeViewState;
@@ -70,6 +72,7 @@ pub struct AppState {
     pub backup_restore_view: BackupRestoreViewState,
     pub playlists: Vec<Playlist>,
     pub playlists_view: PlaylistsViewState,
+    pub about_sheet: AboutSheetState,
 }
 
 impl Default for AppState {
@@ -98,6 +101,7 @@ impl Default for AppState {
             backup_restore_view: BackupRestoreViewState::default(),
             playlists: Vec::new(),
             playlists_view: PlaylistsViewState::default(),
+            about_sheet: AboutSheetState::default(),
         }
     }
 }
@@ -106,6 +110,8 @@ impl Default for AppState {
 pub enum Message {
     NavSelected(NavTab),
     ToggleInspector,
+    AboutOpenClicked,
+    AboutSheet(about_sheet_view::Message),
     LocalLibrary(local_library_view::Message),
     RecentlyAdded(recently_added_view::Message),
     Library(library_view::Message),
@@ -125,6 +131,8 @@ pub fn update(state: &mut AppState, message: Message) {
     match message {
         Message::NavSelected(tab) => state.nav_tab = tab,
         Message::ToggleInspector => state.show_inspector = !state.show_inspector,
+        Message::AboutOpenClicked => state.about_sheet.open(),
+        Message::AboutSheet(m) => about_sheet_view::update(&mut state.about_sheet, m),
         Message::LocalLibrary(m) => local_library_view::update(&mut state.local_library_view, m),
         Message::RecentlyAdded(m) => recently_added_view::update(&mut state.recently_added_view, m),
         Message::Library(m) => library_view::update(&mut state.library_view, m),
@@ -148,27 +156,30 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
     }
     let body = body.width(Length::Fill).height(Length::Fill);
 
-    iced::widget::stack![
-        container(body)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .style(|_theme| container::Style {
-                background: Some(iced::Background::Color(color::BACKGROUND)),
-                ..container::Style::default()
-            }),
-        container(now_playing_bar())
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .align_x(iced::alignment::Horizontal::Center)
-            .align_y(iced::alignment::Vertical::Bottom)
-            .padding(Padding {
-                top: 0.0,
-                right: 0.0,
-                bottom: 16.0,
-                left: 0.0,
-            }),
-    ]
-    .into()
+    let mut layers = iced::widget::Stack::new()
+        .push(container(body).width(Length::Fill).height(Length::Fill).style(|_theme| container::Style {
+            background: Some(iced::Background::Color(color::BACKGROUND)),
+            ..container::Style::default()
+        }))
+        .push(
+            container(now_playing_bar())
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .align_x(iced::alignment::Horizontal::Center)
+                .align_y(iced::alignment::Vertical::Bottom)
+                .padding(Padding {
+                    top: 0.0,
+                    right: 0.0,
+                    bottom: 16.0,
+                    left: 0.0,
+                }),
+        );
+
+    if let Some(sheet) = about_sheet_view::view(&state.devices, &state.about_sheet) {
+        layers = layers.push(sheet.map(Message::AboutSheet));
+    }
+
+    layers.into()
 }
 
 fn sidebar(state: &AppState) -> Element<'_, Message> {
@@ -206,6 +217,14 @@ fn sidebar(state: &AppState) -> Element<'_, Message> {
             left: 16.0,
         }),
         iced::widget::scrollable(items.padding([0, 8])).height(Length::Fill),
+        container(
+            button(text("About Walkman Studio").size(font::CAPTION.size))
+                .width(Length::Fill)
+                .padding([6, 12])
+                .on_press(Message::AboutOpenClicked)
+                .style(|_theme, status| sidebar_item_style(false, status)),
+        )
+        .padding(8),
     ])
     .width(Length::Fixed(sizing::SIDEBAR_WIDTH))
     .height(Length::Fill)
