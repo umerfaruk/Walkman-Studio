@@ -8,6 +8,7 @@
 //! names. Wired up by the `walkman-studio-iced` binary in `crates/app`; the shipping
 //! `walkman-studio` binary is untouched and keeps using the egui modules.
 
+pub mod now_playing;
 pub mod sheets;
 pub mod shell;
 pub mod theme;

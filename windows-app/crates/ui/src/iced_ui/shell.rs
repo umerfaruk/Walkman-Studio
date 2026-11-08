@@ -12,6 +12,7 @@ use iced::{Border, Element, Length, Padding};
 
 use walkman_domain::models::{LocalMusicFolder, Playlist, Track, TransferItem, WalkmanDevice};
 
+use crate::iced_ui::now_playing as now_playing_view;
 use crate::iced_ui::theme::{color, font, sizing};
 use crate::iced_ui::views::albums as albums_view;
 use crate::iced_ui::views::artists as artists_view;
@@ -34,7 +35,6 @@ use crate::iced_ui::sheets::lyrics_editor as lyrics_editor_view;
 use crate::iced_ui::sheets::song_metadata as song_metadata_view;
 use crate::iced_ui::sheets::transfer_item as transfer_item_view;
 use crate::iced_ui::sheets::trim_cut as trim_cut_view;
-use crate::iced_ui::widgets;
 use crate::views::albums::AlbumsViewState;
 use crate::views::artists::ArtistsViewState;
 use crate::views::backup_restore::BackupRestoreViewState;
@@ -62,7 +62,6 @@ use crate::NavTab;
 /// handful of real counts Milestone 4's lifecycle wiring now feeds in (sidebar badges
 /// pending the view-by-view milestone). Grows as later milestones port more of the egui
 /// `AppState` (device/track data, per-view/per-sheet state, player state, …) in.
-#[derive(Debug)]
 pub struct AppState {
     pub nav_tab: NavTab,
     pub show_inspector: bool,
@@ -97,6 +96,8 @@ pub struct AppState {
     pub album_editor: AlbumEditorState,
     pub batch_lyrics_sheet: BatchLyricsGeneratorState,
     pub trim_cut_sheet: TrimCutSheetState,
+    pub player: Option<std::sync::Arc<walkman_services::player::Player>>,
+    pub now_playing: now_playing_view::NowPlayingState,
 }
 
 impl Default for AppState {
@@ -136,6 +137,8 @@ impl Default for AppState {
             album_editor: AlbumEditorState::default(),
             batch_lyrics_sheet: BatchLyricsGeneratorState::default(),
             trim_cut_sheet: TrimCutSheetState::default(),
+            player: None,
+            now_playing: now_playing_view::NowPlayingState::default(),
         }
     }
 }
@@ -166,6 +169,7 @@ pub enum Message {
     TransferQueue(transfer_queue_view::Message),
     BackupRestore(backup_restore_view::Message),
     Playlists(playlists_view::Message),
+    NowPlaying(now_playing_view::Message),
 }
 
 pub fn update(state: &mut AppState, message: Message) {
@@ -200,7 +204,64 @@ pub fn update(state: &mut AppState, message: Message) {
         Message::TransferQueue(m) => transfer_queue_view::update(&state.transfer_queue_items, &mut state.transfer_queue_view, m),
         Message::BackupRestore(m) => backup_restore_view::update(&state.walkman_tracks, &mut state.backup_restore_view, m),
         Message::Playlists(m) => playlists_view::update(&state.playlists, &mut state.playlists_view, m),
+        Message::NowPlaying(m) => handle_now_playing(state, m),
     }
+}
+
+/// Handles the now-playing bar/overlay's messages, calling the real `Player` directly —
+/// ported from `crate::now_playing`'s `transport_controls`/`scrubber_row`/button handlers,
+/// minus the one-shot `PlayerRequests` flag relay those also raise (nothing in this
+/// architecture drains flags separately from `update()`, so there's nothing to relay to).
+fn handle_now_playing(state: &mut AppState, message: now_playing_view::Message) {
+    use now_playing_view::Message as M;
+    match message {
+        M::PreviousClicked => {
+            if let Some(player) = &state.player {
+                let _ = player.previous();
+            }
+        }
+        M::PlayPauseClicked => {
+            if let Some(player) = &state.player {
+                player.toggle_play_pause();
+            }
+        }
+        M::NextClicked => {
+            if let Some(player) = &state.player {
+                let _ = player.next();
+            }
+        }
+        M::SeekChanged(value) => state.now_playing.seek_target = Some(value),
+        M::SeekReleased => {
+            if let Some(target) = state.now_playing.seek_target.take() {
+                if let Some(player) = &state.player {
+                    let _ = player.seek(target);
+                }
+            }
+        }
+        M::InspectorClicked => state.show_inspector = true,
+        M::FullscreenClicked => state.now_playing.is_fullscreen = true,
+        M::CollapseClicked => state.now_playing.is_fullscreen = false,
+    }
+}
+
+/// Refreshes `state.now_playing` from the real player when one is bound — ported from
+/// `crate::now_playing::sync_now_playing_from_player`. Called on the M7 poll tick
+/// (`main_iced.rs`'s subscription), not from `update()` directly, since nothing else
+/// drives a repaint on playback progress otherwise.
+pub fn sync_now_playing_from_player(state: &mut AppState) {
+    use walkman_services::player::PlaybackState;
+    let Some(player) = state.player.clone() else { return };
+    player.poll();
+    let status = player.status();
+    let track = status.current_index.and_then(|i| player.queue().get(i).cloned());
+    state.now_playing.now_playing = track.map(|t| crate::now_playing::NowPlayingPlaceholder {
+        title: t.title,
+        artist: t.artist,
+        duration_secs: status.duration_seconds,
+        position_secs: status.position_seconds,
+        is_playing: status.state == PlaybackState::Playing,
+        is_hi_res: t.bits_per_sample > 16 || t.sample_rate > 48_000,
+    });
 }
 
 pub fn view(state: &AppState) -> Element<'_, Message> {
@@ -216,7 +277,7 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
             ..container::Style::default()
         }))
         .push(
-            container(now_playing_bar())
+            container(now_playing_view::bar(&state.now_playing).map(Message::NowPlaying))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .align_x(iced::alignment::Horizontal::Center)
@@ -228,6 +289,10 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
                     left: 0.0,
                 }),
         );
+
+    if let Some(overlay) = now_playing_view::fullscreen_overlay(&state.now_playing) {
+        layers = layers.push(overlay.map(Message::NowPlaying));
+    }
 
     if let Some(sheet) = about_sheet_view::view(&state.devices, &state.about_sheet) {
         layers = layers.push(sheet.map(Message::AboutSheet));
@@ -430,14 +495,3 @@ fn inspector_pane<'a, Message: 'a>() -> Element<'a, Message> {
     .into()
 }
 
-fn now_playing_bar<'a, Message: 'a>() -> Element<'a, Message> {
-    container(
-        row![text("Not Playing")
-            .size(font::BODY.size)
-            .color(color::SILVER_MUTED)]
-        .padding([10, 16]),
-    )
-    .width(Length::Fixed(sizing::PLAYER_MAX_WIDTH))
-    .style(|_theme| widgets::glass::studio_glass_card())
-    .into()
-}

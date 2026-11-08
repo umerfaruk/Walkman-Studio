@@ -1,11 +1,11 @@
 //! Walkman Studio for Windows — iced entry point (migration target for `main.rs`).
 //!
-//! Milestone 4 of the egui-to-iced migration plan wires real `AppServices` in and
-//! replaces egui's "spawn a thread, stash its `Receiver`, poll every frame" lifecycle
-//! pattern (`lifecycle.rs`) with iced's `Task`/`Subscription` model (`lifecycle_iced.rs`).
-//! No per-view command enums exist yet (views are placeholders until Milestone 5), so the
-//! top-level [`Message`] only wraps the shell's own messages and the lifecycle ones for
-//! now; it grows a variant per view/sheet as they're ported.
+//! Milestone 4 wires real `AppServices` in and replaces egui's "spawn a thread, stash
+//! its `Receiver`, poll every frame" lifecycle pattern (`lifecycle.rs`) with iced's
+//! `Task`/`Subscription` model (`lifecycle_iced.rs`). Milestone 7 binds the real `Player`
+//! and polls it the same way — ported from `now_playing.rs::sync_now_playing_from_player`,
+//! which egui calls inline every frame; here a periodic `Subscription` tick stands in for
+//! "every frame" since iced has no such hook.
 
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
@@ -41,7 +41,13 @@ fn main() -> iced::Result {
 enum Message {
     Shell(shell::Message),
     Lifecycle(lifecycle_iced::Message),
+    PlayerPollTick,
 }
+
+/// How often the now-playing bar/overlay refreshes from the real player — fast enough for
+/// a smooth scrubber, matching the egui version's every-frame poll closely enough for a
+/// UI, not an audio-timing concern (the player itself drives actual playback).
+const PLAYER_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
 
 struct App {
     state: shell::AppState,
@@ -55,9 +61,13 @@ struct App {
 impl App {
     fn new(services: AppServices) -> (Self, Task<Message>) {
         let startup = lifecycle_iced::startup_task(&services).map(Message::Lifecycle);
+        let state = shell::AppState {
+            player: Some(std::sync::Arc::clone(&services.player)),
+            ..shell::AppState::default()
+        };
         (
             App {
-                state: shell::AppState::default(),
+                state,
                 services,
                 scanned_mounts: Vec::new(),
             },
@@ -94,6 +104,10 @@ impl App {
                 self.state.walkman_tracks = tracks;
                 Task::none()
             }
+            Message::PlayerPollTick => {
+                shell::sync_now_playing_from_player(&mut self.state);
+                Task::none()
+            }
         }
     }
 
@@ -102,7 +116,10 @@ impl App {
     }
 
     fn subscription(&self) -> iced::Subscription<Message> {
-        lifecycle_iced::subscription().map(Message::Lifecycle)
+        iced::Subscription::batch([
+            lifecycle_iced::subscription().map(Message::Lifecycle),
+            iced::time::every(PLAYER_POLL_INTERVAL).map(|_| Message::PlayerPollTick),
+        ])
     }
 
     fn view(&self) -> Element<'_, Message> {
