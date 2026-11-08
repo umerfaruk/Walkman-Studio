@@ -134,9 +134,14 @@ fn play_tracks(services: &AppServices, state: &mut AppState, ids: &[String]) {
     }
 }
 
+/// Deletes every track in `ids` (audio file + companions). Every command that reaches this
+/// helper (`Delete`/`DeleteTrack`/`ResolveGroupKeepBest`) is only ever emitted by a view after
+/// its own confirm sheet already ran (task 14-17's delete-confirm/resolve-group-confirm
+/// sheets) — `confirmed: true` here reflects that confirmation having already happened, not
+/// skipping it (R19.3/19.6).
 fn delete_tracks(state: &mut AppState, ids: &[String]) {
     for id in ids {
-        if let Err(e) = duplicate_finder::delete_track_and_companions(Path::new(id)) {
+        if let Err(e) = duplicate_finder::delete_track_and_companions(Path::new(id), true) {
             log::warn!("delete failed for {id}: {e}");
         }
     }
@@ -375,8 +380,10 @@ fn drain_duplicates(services: &AppServices, state: &mut AppState) {
             DuplicatesCommand::DeleteTrack(id) => delete_tracks(state, &[id]),
             DuplicatesCommand::ResolveGroupKeepBest(ids) => delete_tracks(state, &ids),
             DuplicatesCommand::AutoResolveQuality => {
+                // Reaches this arm only via `DuplicatesSheet::AutoResolveConfirm`'s own
+                // confirm button (task 17.2), so the confirmation has already happened.
                 let groups = duplicate_finder::find_duplicates(&state.walkman_tracks, state.duplicates_view.scope);
-                let removed = duplicate_finder::auto_resolve_quality(&groups);
+                let removed = duplicate_finder::auto_resolve_quality(&groups, true);
                 state.walkman_tracks.retain(|t| !removed.contains(&t.full_path));
             }
             DuplicatesCommand::Audition(id) => play_tracks(services, state, &[id]),

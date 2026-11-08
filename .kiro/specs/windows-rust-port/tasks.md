@@ -1035,14 +1035,67 @@ verification.
         the installer/standalone-exe build (device images, SensMe covers, fonts, icons) for
         `x86_64` and `aarch64` Windows.
     - _Requirements: 19.1, 19.2_
+    - Progress: `find_ffmpeg`/`find_ffprobe` (task 8.3's bundled-first discovery) were already
+      done. New: `windows-app/scripts/package.ps1` — builds the release binary for a given
+      target (`-Target x64`/`arm64`) and stages a `dist/<target>/` folder with the exe, the
+      real device images (26 PNGs) and SensMe channel covers (14 JPGs) that already exist at
+      the repo root shared with the macOS app (not fabricated — copied as-is), and any
+      `assets/bin/ffmpeg.exe`/`ffprobe.exe` already vendored per `assets/README.md`. Run and
+      verified for real on this host: `-Target x64` built, staged everything, and warned
+      correctly about the 2 inputs it can't supply (no `assets/bin/` binaries on this host;
+      Segoe UI/the Lucide icon font aren't bundled here — both licensing/network-fetch gaps
+      `install_fonts`/`bundled_icon_font` already fall back gracefully from, not build
+      failures). `-Target arm64` was also run for real: `rustup target add
+      aarch64-pc-windows-msvc` succeeded, but `cargo build --target aarch64-pc-windows-msvc`
+      fails with `cc-rs: failed to find tool "clang"` — this x64 dev host's VS Build Tools
+      installation lacks the ARM64 MSVC C++ component `rusqlite`'s bundled SQLite and `ring`
+      both need to cross-compile their C code; the script now checks `cargo build`'s exit
+      code and fails fast with that diagnosis instead of limping into a stale-binary copy
+      error. Stays `[~]`: an arm64 *build* was never actually produced (only x64 was), and
+      Segoe UI/Lucide bundling needs files this sandboxed environment has no rights/network
+      access to fetch.
   - [~] 19.2 Write a benchmark/integration test that scans a generated 7,000+ track fixture library
         and asserts scan+precompute completes within a performance budget without blocking the UI
         thread (worker-channel assertions).
     - _Requirements: 18.4, 19.5_
-  - [~] 19.3 Implement input-validation guards for all external content (image decode bounds, lyrics/
+    - Progress: `services/tests/library_scan_benchmark.rs`, reusing `library_scan_integration.rs`'s
+      (task 7.4) hand-built frameless-FLAC fixture technique at 7,200 tracks across 600 albums/
+      300 artists. Asserts both halves of R18.4: `LocalLibrary::rescan_all_async`'s *call*
+      returns in under 200ms regardless of library size (the actual scan runs on a worker
+      thread, picked up via the same channel-poll pattern `app/src/lifecycle.rs`'s
+      `poll_local_rescan` uses in the real app), and the background scan+precompute itself
+      finishes within a generous 90s wall-clock budget (actually ~13-20s on this host in both
+      debug and release profiles) — plus the resulting `PrecomputedCaches` stats match the
+      fixture's known album/artist/hi-res counts, so this isn't just a timing check with no
+      correctness assertion. 1 new test.
+  - [x] 19.3 Implement input-validation guards for all external content (image decode bounds, lyrics/
         metadata sanitization) and assert non-destructive behavior in tests: delete operations
         require a confirmation flag, and tag-only operations leave audio stream bytes unchanged.
     - _Requirements: 19.3, 19.4, 19.6_
+    - Progress: Three real gaps found and closed, each with a test proving the failure mode
+      it closes. (1) **Image decode bounds**: `artwork::encode_baseline_jpeg` now rejects any
+      input over 64MB before attempting a decode at all (a cheap, early rejection); a new test
+      also proves the deeper protection already present — `image::ImageReader`'s default
+      `Limits` (a 512MB decode-allocation cap) — by hand-building a well-formed PNG `IHDR`
+      chunk (correct CRC-32) declaring a 60,000×60,000 image with no pixel data following it,
+      and asserting `encode_baseline_jpeg` fails cleanly rather than allocating ~14GB and
+      OOMing. (2) **Lyrics sanitization**: `walkman_engine::write_lrc` now runs every line's
+      text through a new `sanitize_lrc_line_text` (collapses any embedded `\r`/`\n` to a
+      single space) before writing — text from a pasted source, an LRCLIB/Lyrics.ovh
+      response, or the new task-18 built-in editor could otherwise inject extra physical
+      lines into the strict one-`[mm:ss.xx]text`-per-line `.lrc` format, desyncing every
+      later timestamp from the text that follows it; a new test confirms a line with an
+      embedded `\r\n` produces exactly one physical line, not two. (3) **Delete requires
+      confirmation**: `duplicate_finder::{delete_track_and_companions, auto_resolve_quality}`
+      both gained a `confirmed: bool` parameter — `false` refuses (an `Err` for the single-
+      track function, an empty, nothing-touched result for the batch one) without touching
+      the filesystem at all, a defense-in-depth backstop behind the UI's own confirm sheets
+      (which already gate every call site in `app/src/dispatch.rs`, all of which now pass
+      `true` with a comment explaining why). (4) **Tag-only ops preserve audio bytes**: this
+      was already covered — `flac_tags.rs`/`id3v2.rs` each already had an explicit "original
+      audio bytes survive untouched" assertion from tasks 8.2/8.3, so no new work was needed
+      there, only confirming the coverage already existed rather than assuming it did. 6 new
+      tests across `artwork.rs`/`walkman_engine.rs`/`duplicate_finder.rs`.
   - [~] 19.4 Implement a parity-checklist test that enumerates every `NavTab`, sort option, filter,
         display mode, and sheet in code and asserts the set matches a fixture captured from the macOS
         app (so missing/renamed options fail the build).

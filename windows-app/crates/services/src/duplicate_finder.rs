@@ -154,7 +154,16 @@ pub fn total_recoverable_bytes(groups: &[DuplicateGroup]) -> i64 {
 /// [`DuplicateGroup::best_quality_track`] is deleted (audio file + companion `.lrc`/`.txt`, if
 /// present). Returns the full-paths actually removed. A failure to delete one track's files is
 /// logged and skipped rather than aborting the whole batch.
-pub fn auto_resolve_quality(groups: &[DuplicateGroup]) -> Vec<String> {
+///
+/// `confirmed` must be `true` (R19.3/19.6: delete operations require an explicit confirmation
+/// flag) — the caller (the UI's own confirm sheet, already shown before this is ever reached)
+/// is the thing asserting the user actually agreed; this is this service's own
+/// defense-in-depth check against a caller that skipped it, not a second UI prompt.
+pub fn auto_resolve_quality(groups: &[DuplicateGroup], confirmed: bool) -> Vec<String> {
+    if !confirmed {
+        log::warn!("auto_resolve_quality called without confirmation; refusing to delete anything");
+        return Vec::new();
+    }
     let mut removed = Vec::new();
     for group in groups {
         let best = group.best_quality_track().full_path.clone();
@@ -162,7 +171,7 @@ pub fn auto_resolve_quality(groups: &[DuplicateGroup]) -> Vec<String> {
             if track.full_path == best {
                 continue;
             }
-            match delete_track_and_companions(Path::new(&track.full_path)) {
+            match delete_track_and_companions(Path::new(&track.full_path), true) {
                 Ok(()) => removed.push(track.full_path.clone()),
                 Err(e) => log::warn!("auto-resolve: failed to delete {}: {e}", track.full_path),
             }
@@ -172,7 +181,15 @@ pub fn auto_resolve_quality(groups: &[DuplicateGroup]) -> Vec<String> {
 }
 
 /// Deletes `audio_path` plus any companion `.lrc`/`.txt` lyrics file beside it (R10.4).
-pub fn delete_track_and_companions(audio_path: &Path) -> Result<()> {
+///
+/// `confirmed` must be `true` (R19.3/19.6: delete operations require an explicit confirmation
+/// flag), the same defense-in-depth reasoning as [`auto_resolve_quality`]'s own parameter —
+/// refuses with an error and touches nothing on disk when `false`, rather than silently
+/// no-oping, so a caller that forgets to confirm gets a loud failure instead of a quiet one.
+pub fn delete_track_and_companions(audio_path: &Path, confirmed: bool) -> Result<()> {
+    if !confirmed {
+        return Err(crate::error::AppError::Tag(format!("refusing to delete {} without explicit confirmation", audio_path.display())));
+    }
     std::fs::remove_file(audio_path)?;
     for ext in ["lrc", "txt"] {
         let companion = audio_path.with_extension(ext);
@@ -314,12 +331,42 @@ mod tests {
             track(high.to_str().unwrap(), "Dawn", "Nova", "Horizon", 200.0, 24, 96_000, 2),
         ];
         let groups = find_duplicates(&tracks, DuplicateScope::ExactSameAlbum);
-        let removed = auto_resolve_quality(&groups);
+        let removed = auto_resolve_quality(&groups, true);
 
         assert_eq!(removed, vec![low.to_str().unwrap().to_string()]);
         assert!(!low.exists());
         assert!(!low_lrc.exists());
         assert!(high.exists());
+    }
+
+    #[test]
+    fn auto_resolve_quality_without_confirmation_deletes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let low = dir.path().join("low.flac");
+        let high = dir.path().join("high.flac");
+        std::fs::write(&low, b"low quality").unwrap();
+        std::fs::write(&high, b"high quality").unwrap();
+
+        let tracks = vec![
+            track(low.to_str().unwrap(), "Dawn", "Nova", "Horizon", 200.0, 16, 44_100, 1),
+            track(high.to_str().unwrap(), "Dawn", "Nova", "Horizon", 200.0, 24, 96_000, 2),
+        ];
+        let groups = find_duplicates(&tracks, DuplicateScope::ExactSameAlbum);
+        let removed = auto_resolve_quality(&groups, false);
+
+        assert!(removed.is_empty());
+        assert!(low.exists(), "nothing should be deleted without confirmation");
+        assert!(high.exists());
+    }
+
+    #[test]
+    fn delete_track_and_companions_without_confirmation_errors_and_deletes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let audio = dir.path().join("song.flac");
+        std::fs::write(&audio, b"audio bytes").unwrap();
+
+        assert!(delete_track_and_companions(&audio, false).is_err());
+        assert!(audio.exists(), "the file must survive an unconfirmed delete call");
     }
 
     #[test]

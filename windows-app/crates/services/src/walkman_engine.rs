@@ -310,13 +310,23 @@ pub fn write_lrc(audio_path: &Path, lines: &[LrcLine], offset_ms: Option<i64>) -
     }
     for line in &sorted {
         content.push_str(&format_lrc_timestamp(line.timestamp_seconds));
-        content.push_str(&line.text);
+        content.push_str(&sanitize_lrc_line_text(&line.text));
         content.push_str("\r\n");
     }
 
     // `String`'s bytes are UTF-8 with no BOM by construction; written as-is.
     std::fs::write(&lrc_path, content.as_bytes())?;
     Ok(lrc_path)
+}
+
+/// Sanitizes one lyric line's text before it's written into the strict `[mm:ss.xx]text\r\n`
+/// `.lrc` format (R19.3): a line's text might come from a pasted lyrics source, an LRCLIB/
+/// Lyrics.ovh response, or the built-in editor's free-text field (task 18), any of which
+/// could contain an embedded `\r`/`\n` — collapsed to a single space here so one logical line
+/// can never become two or more physical lines (which would desync every subsequent
+/// timestamp from the text that follows it) or inject a bare line with no timestamp prefix.
+fn sanitize_lrc_line_text(text: &str) -> String {
+    text.replace("\r\n", " ").replace(['\r', '\n'], " ")
 }
 
 fn format_lrc_timestamp(seconds: f64) -> String {
@@ -500,6 +510,28 @@ mod tests {
         write_lrc(&audio_path, &[LrcLine { timestamp_seconds: 0.0, text: "x".into() }], None).unwrap();
 
         assert_eq!(std::fs::read(&audio_path).unwrap(), b"original audio bytes");
+    }
+
+    #[test]
+    fn write_lrc_collapses_embedded_crlf_in_a_lines_text_to_a_single_line() {
+        // R19.3: an embedded `\r`/`\n` in lyric text (e.g. from a pasted/fetched source)
+        // must never split into extra physical lines, which would desync every later
+        // timestamp from the line it belongs to.
+        let dir = tempfile::tempdir().unwrap();
+        let audio_path = dir.path().join("song.flac");
+        std::fs::write(&audio_path, b"fake audio").unwrap();
+
+        let lines = vec![
+            LrcLine { timestamp_seconds: 0.0, text: "line one\r\ninjected".to_string() },
+            LrcLine { timestamp_seconds: 1.0, text: "line two".to_string() },
+        ];
+        write_lrc(&audio_path, &lines, None).unwrap();
+
+        let text = std::fs::read_to_string(audio_path.with_extension("lrc")).unwrap();
+        // Exactly 2 physical lines (each ending in CRLF), not 3.
+        assert_eq!(text.matches("\r\n").count(), 2);
+        assert!(text.contains("[00:00.00]line one injected\r\n"));
+        assert!(text.contains("[00:01.00]line two\r\n"));
     }
 
     #[test]
