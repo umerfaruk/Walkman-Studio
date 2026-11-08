@@ -41,6 +41,21 @@ pub struct AppState {
     /// Id of the track shown in the inspector, if any (full-path track id). Populated by
     /// the detail views in later tasks.
     pub selected_track_id: Option<String>,
+    /// Lyrics text read for [`AppState::selected_track_id`]'s track (R15.5's device lyrics
+    /// viewer). `None` until task 18 wires the real companion-file/embedded-tag reader in;
+    /// the inspector simply shows "No lyrics found" until then.
+    pub inspector_lyrics: Option<String>,
+    /// `MetadataStudioView`'s own UI state (emitted commands).
+    pub inspector_view: crate::inspector::InspectorViewState,
+    /// `SongMetadataEditorSheet`'s own UI state (task 16.2), opened from the inspector's
+    /// `Edit` button or a view's `EditTrackMetadata` command.
+    pub song_editor: crate::sheets::song_metadata::SongEditorState,
+    /// `AlbumMetadataEditorSheet`'s own UI state (task 16.3), opened from a view's
+    /// `EditAlbumMetadata` command.
+    pub album_editor: crate::sheets::album_metadata::AlbumEditorState,
+    /// `TransferQueueItemEditorSheet`'s own UI state (task 16.4), opened from a
+    /// `TransferQueueView` row (task 17.1, not yet built).
+    pub transfer_item_editor: crate::sheets::transfer_item::TransferItemEditorState,
 
     // --- Sidebar visibility drivers (task 4.2) ---
     //
@@ -212,6 +227,11 @@ impl Default for AppState {
             // The inspector is hidden until the user opens it (requirement 1.1).
             show_inspector: false,
             selected_track_id: None,
+            inspector_lyrics: None,
+            inspector_view: crate::inspector::InspectorViewState::default(),
+            song_editor: crate::sheets::song_metadata::SongEditorState::default(),
+            album_editor: crate::sheets::album_metadata::AlbumEditorState::default(),
+            transfer_item_editor: crate::sheets::transfer_item::TransferItemEditorState::default(),
 
             // No Walkman attached until a device event fires (task 9); the sidebar opens
             // in its disconnected state.
@@ -343,8 +363,28 @@ pub fn layout_shell(ctx: &egui::Context, state: &mut AppState) {
                         full.max,
                     )),
                 );
-                inspector_placeholder(&mut content, state);
+                let selected_track = state
+                    .selected_track_id
+                    .as_deref()
+                    .and_then(|id| state.walkman_tracks.iter().chain(state.local_tracks.iter()).find(|t| t.id() == id))
+                    .cloned();
+                let lyrics = state.inspector_lyrics.clone();
+                crate::inspector::render(&mut content, selected_track.as_ref(), lyrics.as_deref(), &mut state.inspector_view);
             });
+    }
+
+    // Drain the inspector's `Edit` command into the Song Metadata Editor sheet (task 16.2).
+    // Every other view's own `EditTrackMetadata`/`EditAlbumMetadata` commands stay in their
+    // view's `commands` queue for task 18 to drain the same way against the real services.
+    for command in std::mem::take(&mut state.inspector_view.commands) {
+        match command {
+            crate::inspector::InspectorCommand::EditRequested(track_id) => {
+                let track = state.walkman_tracks.iter().chain(state.local_tracks.iter()).find(|t| t.id() == track_id).cloned();
+                if let Some(track) = track {
+                    state.song_editor.open_for(&track);
+                }
+            }
+        }
     }
 
     // --- Center: flexible detail pane filling the remaining width. ---
@@ -368,13 +408,14 @@ pub fn layout_shell(ctx: &egui::Context, state: &mut AppState) {
     // Drawn last so the overlay covers everything, including the now-playing bar, when the
     // user enlarges the player.
     now_playing::render_fullscreen_overlay(ctx, state);
-}
 
-/// Placeholder inspector pane. The real `MetadataStudioView` inspector lands in task 16.1.
-fn inspector_placeholder(ui: &mut egui::Ui, _state: &AppState) {
-    ui.add_space(12.0);
-    ui.label("Inspector");
-    ui.label("(MetadataStudioView: task 16.1)");
+    // --- Metadata editor sheets (task 16.2/16.3). ---
+    //
+    // Drawn after the fullscreen overlay so an editor sheet opened while the fullscreen
+    // player is up still shows on top; both are no-ops unless their own `open` flag is set.
+    crate::sheets::song_metadata::render(ctx, &mut state.song_editor);
+    crate::sheets::album_metadata::render(ctx, &mut state.album_editor);
+    crate::sheets::transfer_item::render(ctx, &mut state.transfer_item_editor);
 }
 
 #[cfg(test)]
@@ -450,5 +491,65 @@ mod tests {
                 });
             }
         }
+    }
+
+    fn sample_track() -> walkman_domain::models::Track {
+        walkman_domain::models::Track {
+            filename: "song.flac".into(),
+            relative_path: "song.flac".into(),
+            full_path: "D:/Music/song.flac".into(),
+            format: "FLAC".into(),
+            title: "Title".into(),
+            artist: "Artist".into(),
+            album: "Album".into(),
+            track_num: "1".into(),
+            year: "2024".into(),
+            genre: String::new(),
+            duration_seconds: 200.0,
+            bitrate_kbps: 900,
+            sample_rate: 44_100,
+            bits_per_sample: 16,
+            has_artwork: false,
+            size_bytes: 1,
+            date_added: chrono::Utc::now(),
+            is_senseme_analyzed: false,
+            senseme_bpm: None,
+            senseme_valence: None,
+            senseme_arousal: None,
+            senseme_channels: Vec::new(),
+            senseme_highlight_sec: None,
+        }
+    }
+
+    /// The inspector's `Edit` button (task 16.1) opens the Song Metadata Editor (task 16.2)
+    /// for the selected track — [`layout_shell`] drains `InspectorCommand::EditRequested`
+    /// into [`crate::sheets::song_metadata::SongEditorState::open_for`] every frame.
+    #[test]
+    fn inspector_edit_command_opens_the_song_editor_for_the_selected_track() {
+        let ctx = egui::Context::default();
+        crate::theme::install_fonts(&ctx);
+
+        let mut state = AppState::default();
+        let track = sample_track();
+        state.walkman_tracks.push(track.clone());
+        state.selected_track_id = Some(track.id().to_owned());
+        state.show_inspector = true;
+
+        // Simulate the Edit button's click handler directly (the same push the real button
+        // does) rather than driving pointer input through a headless frame.
+        state
+            .inspector_view
+            .commands
+            .push(crate::inspector::InspectorCommand::EditRequested(track.id().to_owned()));
+
+        let _ = ctx.run(egui::RawInput::default(), |ctx| {
+            layout_shell(ctx, &mut state);
+        });
+
+        assert!(state.song_editor.open);
+        assert_eq!(state.song_editor.track_id, track.id());
+        assert_eq!(state.song_editor.fields.title, "Title");
+        // The command queue is drained, not left to accumulate forever.
+        assert!(state.inspector_view.commands.is_empty());
     }
 }

@@ -734,19 +734,77 @@ verification.
       boundary-index states; wired into `detail.rs`'s `NavTab::SenseMe` arm (replacing its
       placeholder) and a new `AppState::senseme_view` field.
 
-- [ ] 16. Build metadata editors, inspector, and artwork export
-  - [~] 16.1 Implement `MetadataStudioView` inspector (300pt): artwork, metadata, specs, Edit button,
+- [x] 16. Build metadata editors, inspector, and artwork export
+  - [x] 16.1 Implement `MetadataStudioView` inspector (300pt): artwork, metadata, specs, Edit button,
         device lyrics display.
     - _Requirements: 8.1, 15.5_
-  - [~] 16.2 Implement `SongMetadataEditorSheet`: tabs (Tags & Specs / Album Artwork), all editable
+    - Progress: `ui/src/inspector.rs`. Renders the real selected `Track` (resolved in
+      `shell.rs` from `AppState::selected_track_id` against `walkman_tracks`/`local_tracks`) —
+      metadata (album/track#/year/genre), audio specs (format/bitrate/sample rate/bit depth/
+      duration/size, with the existing Hi-Res badge for `Track::is_hi_res()`), an `Edit`
+      button that pushes `InspectorCommand::EditRequested(track_id)`, and a lyrics section
+      driven by a new `AppState::inspector_lyrics: Option<String>` (empty until task 18 wires
+      the real companion-file/embedded-tag reader in — R15.5's actual decoding is a services
+      concern this view doesn't own). Artwork stays a placeholder tile, same caveat as every
+      other grid/detail view since task 14.4. `shell.rs`'s `layout_shell` now drains
+      `EditRequested` directly into the new Song Metadata Editor sheet (task 16.2) each
+      frame — opening a sheet is pure UI state with no service call behind it, unlike every
+      other view's own `Edit*Metadata` commands, which stay queued for task 18 to drain the
+      same way once they *do* need a service. 6 new tests (4 pure formatting-helper tests + a
+      command test + a headless-frame render across empty/populated/with-lyrics states) plus
+      a new `shell.rs` test proving the drain actually opens the editor with the right track.
+  - [x] 16.2 Implement `SongMetadataEditorSheet`: tabs (Tags & Specs / Album Artwork), all editable
         fields, artwork drop zone + compliance badges, export-to-PC, online metadata + lyrics
         search; modal size ≈960×860.
     - _Requirements: 8.2, 13.2, 13.3, 15.1_
-  - [~] 16.3 Implement `AlbumMetadataEditorSheet`: batch field edit, unified artwork + `folder.jpg`,
+    - Progress: `ui/src/sheets/song_metadata.rs` (+ a new `ui/src/sheets/mod.rs` holding the
+      shared `modal()`/`text_field()` helpers every task-16 sheet now uses, factored out of
+      `views/local_library.rs`'s original private copy rather than reimplemented per sheet).
+      A `SongEditorFields` working copy (Title/Artist/Album/Track #/Disc #/Year/Genre/Lyrics)
+      seeds from the real `Track` on open and round-trips back out via `Save`, so `Cancel`
+      discards edits for free; Disc Number always seeds empty since `Track` doesn't carry one
+      (ported 1:1 from the Swift model and `audio_tagger::TagFields`'s own documented
+      writer-only field) but still saves through. The Album Artwork tab reuses the *exact*
+      `artwork::ArtworkCompliance::badges()`/`is_walkman_ready()` already built in task 8.1
+      for its compliance badges rather than re-deriving them, against a placeholder tile (no
+      texture pipeline, same caveat as 16.1). Online metadata search and lyrics search render
+      whatever `online_metadata::MetadataCandidate`/lyrics text the (not-yet-wired, task 18)
+      service call hands back in `online_candidates`/`lyrics_candidate`, with "Apply" buttons
+      that copy fields in locally — no network call happens in this crate. Drag-and-drop
+      artwork import isn't wired (egui has no native OS drop affordance here yet); Import/
+      Export buttons emit commands instead for the real file-dialog platform call to fulfil.
+      14 new tests (seeding, stale-result reset, candidate-apply field scoping, close
+      semantics, and a headless-frame render across closed/both tabs/with-results).
+  - [x] 16.3 Implement `AlbumMetadataEditorSheet`: batch field edit, unified artwork + `folder.jpg`,
         tracklist reorder + renumber (`1..N`/`01..N`).
     - _Requirements: 8.3_
-  - [~] 16.4 Implement `TransferQueueItemEditorSheet`: per-item tabs + online metadata/lyrics fetch.
+    - Progress: `ui/src/sheets/album_metadata.rs`. Batch fields (Title/Artist/Year/Genre) seed
+      from the album's first track (editing an album as a unit, any track's album-level
+      fields are an equally valid seed); a `Vec<AlbumEditorTrackRow>` tracklist supports
+      Up/Down reordering (`move_row_up`/`move_row_down`, each a boundary-safe no-op) and
+      `renumber()` with both `1..N` and zero-padded `01..N` styles (width derived from the row
+      count, so a 100+ track album pads to 3 digits, not hardcoded to 2) — `Save` carries the
+      final `track_ids`/`track_numbers` in display order. Reuses the same placeholder-tile +
+      `ArtworkCompliance` badge pattern as 16.2 for the unified artwork + its companion
+      `folder.jpg` note, not a parallel implementation. 10 new tests (renumbering at several
+      row counts, reordering at both boundaries, empty-album seeding, and a headless-frame
+      render).
+  - [x] 16.4 Implement `TransferQueueItemEditorSheet`: per-item tabs + online metadata/lyrics fetch.
     - _Requirements: 9.1_
+    - Progress: `ui/src/sheets/transfer_item.rs`. `TransferQueueView` (task 17.1, which opens
+      this sheet) doesn't exist yet and has no `TransferItem` type to read from — only
+      `walkman_domain::models::TransferStatus` does — so this sheet is written against a
+      local `TransferItemSummary` (an id + a `TransferStatus` + the *same*
+      `song_metadata::SongEditorFields` working copy the Song editor already uses, since a
+      transfer item's editable tag set is identical) rather than inventing a parallel field
+      set task 17.1 would have to reconcile with later; task 17.1 is expected to construct a
+      `TransferItemSummary` from whatever `TransferItem` it defines. `status_label()` covers
+      every `TransferStatus` variant (including the `Skipped`/`Failed` reason text) for the
+      sheet's header. Online metadata/lyrics search reuse the identical pattern as 16.2's
+      (candidates/lyrics rendered from state, "Apply" copies fields locally, no network call
+      in this crate). 8 new tests (status labels, seeding/reset/close lifecycle, and a
+      headless-frame render across closed/pending/failed-with-results states); wired into
+      `AppState::transfer_item_editor` and rendered from `shell.rs`, ready for 17.1 to open.
 
 - [ ] 17. Build tool views and sheets
   - [~] 17.1 Implement `TransferQueueView`: queue list with status, expandable rows, per-item editor,
@@ -846,20 +904,20 @@ verification.
 - Golden-byte and parity fixtures (tasks 8.5, 19.4) should be captured from the macOS app output and
   committed under `crates/*/tests/fixtures/`.
 - No audio stream is re-encoded during metadata-only operations; this is asserted in task 19.3.
-- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, and 15
+- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, and 16
   complete; 5.2, 5.3, 6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1,
-  9.2, 9.3, 9.4, 10.1, 10.2, 10.3, 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, and every 14.x/15.x
+  9.2, 9.3, 9.4, 10.1, 10.2, 10.3, 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, and every 14.x/15.x/16.x
   subtask complete;
   3.1, 5.1, 5.4, 6.3, and 6.7 partially done (see per-task Progress notes). The dev host switched
   to the MSVC toolchain (Visual Studio Build Tools installed,
   `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
   dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
   bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo test
-  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 393 tests) —
+  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 412 tests) —
   including task 13's player tests against this host's *real* audio output device (not mocked),
   task 15.1's test that the now-playing bar mirrors that same real, bound `Player`, and task
-  14/15's headless-egui-frame render tests across every view/mode/sheet/carousel-position
-  combination. 6.3
+  14/15/16's headless-egui-frame render tests across every view/mode/sheet/carousel-position/
+  editor-state combination. 6.3
   and 6.7 stay `[~]` because they're intentionally partial (poll-only device events; no
   artwork/command callbacks yet); task 8.5 is checked off despite a known, documented gap (no
   real macOS-app-captured golden-byte fixtures exist in this repo, so the writers are

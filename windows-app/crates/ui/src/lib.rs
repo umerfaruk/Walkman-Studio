@@ -6,9 +6,11 @@
 //! launches; views are added in later tasks.
 
 pub mod detail;
+pub mod inspector;
 pub mod nav;
 pub mod now_playing;
 pub mod selection;
+pub mod sheets;
 pub mod shell;
 pub mod sidebar;
 pub mod theme;
