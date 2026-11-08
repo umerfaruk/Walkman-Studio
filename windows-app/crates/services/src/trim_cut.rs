@@ -45,6 +45,14 @@ pub enum ChannelMode {
     Stereo,
     IsolateLeft,
     IsolateRight,
+    /// Silences the left channel, leaving the right channel on its own side (distinct from
+    /// [`ChannelMode::IsolateRight`], which duplicates the right channel to *both* ears) —
+    /// `AudioChannelMode.muteLeft` ("Mute Left Channel (Right Only Output)") in the macOS
+    /// source, added here after task 19.4's parity check found it (and `MuteRight`) missing.
+    MuteLeft,
+    /// Silences the right channel, leaving the left channel on its own side — macOS's
+    /// `AudioChannelMode.muteRight`.
+    MuteRight,
     /// 180° phase flip.
     PhaseFlip,
 }
@@ -71,6 +79,8 @@ fn channel_filter(mode: ChannelMode) -> Option<&'static str> {
         ChannelMode::Stereo => Some("aformat=channel_layouts=stereo"),
         ChannelMode::IsolateLeft => Some("pan=stereo|c0=c0|c1=c0"),
         ChannelMode::IsolateRight => Some("pan=stereo|c0=c1|c1=c1"),
+        ChannelMode::MuteLeft => Some("pan=stereo|c0=0|c1=c1"),
+        ChannelMode::MuteRight => Some("pan=stereo|c0=c0|c1=0"),
         ChannelMode::PhaseFlip => Some("aeval=-val(0)|-val(1):channel_layouts=stereo"),
     }
 }
@@ -334,6 +344,8 @@ mod tests {
             (ChannelMode::Stereo, "channel_layouts=stereo"),
             (ChannelMode::IsolateLeft, "c0=c0|c1=c0"),
             (ChannelMode::IsolateRight, "c0=c1|c1=c1"),
+            (ChannelMode::MuteLeft, "c0=0|c1=c1"),
+            (ChannelMode::MuteRight, "c0=c0|c1=0"),
             (ChannelMode::PhaseFlip, "-val(0)"),
         ] {
             let mut o = opts(TrimCutMode::Trim);

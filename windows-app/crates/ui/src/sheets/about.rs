@@ -1,34 +1,40 @@
 //! `AboutWalkmanStudioView`, ported from
 //! `Sources/WalkmanStudio/Views/AboutWalkmanStudioView.swift`.
 //!
-//! Spec task **17.7** (requirement 16.3): a Hardware tab (the connected Walkman's specs,
-//! same fields `DeviceOverviewView`, task 14.8, already shows), a Supported DAPs tab (the
-//! real `walkman_services::device_detector::CATALOG`, task 9.1's hardcoded Sony model
-//! catalog — not a second list), and a Credits tab.
+//! Spec task **17.7** (requirement 16.3), corrected under task 19.4's parity check: the real
+//! macOS view has 4 tabs (`AboutTab`: `.hardware`, `.supportedDAPs`, `.engineRules`,
+//! `.developerSupport`) — this originally shipped with a 3rd tab named "Credits" that didn't
+//! match either real tab, caught by comparing against `Sources/WalkmanStudio/Views/
+//! AboutWalkmanStudioView.swift` directly. Hardware reuses the same `WalkmanDeviceInfo`
+//! fields `DeviceOverviewView` (task 14.8) already shows; Supported DAPs iterates the real
+//! `device_detector::CATALOG` (task 9.1); Engine Rules and Developer & Support now carry the
+//! real card text/copy from the Swift source instead of invented placeholder copy.
 
 use eframe::egui;
 
 use walkman_domain::models::WalkmanDevice;
 use walkman_services::device_detector::CATALOG;
 
-use crate::theme::{button, color, font};
+use crate::theme::{button, color, font, glass};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AboutTab {
     #[default]
     Hardware,
     SupportedDaps,
-    Credits,
+    EngineRules,
+    DeveloperSupport,
 }
 
 impl AboutTab {
-    pub const ALL: [AboutTab; 3] = [AboutTab::Hardware, AboutTab::SupportedDaps, AboutTab::Credits];
+    pub const ALL: [AboutTab; 4] = [AboutTab::Hardware, AboutTab::SupportedDaps, AboutTab::EngineRules, AboutTab::DeveloperSupport];
 
     pub fn title(self) -> &'static str {
         match self {
             AboutTab::Hardware => "Hardware",
             AboutTab::SupportedDaps => "Supported DAPs",
-            AboutTab::Credits => "Credits",
+            AboutTab::EngineRules => "Engine Rules",
+            AboutTab::DeveloperSupport => "Developer & Support",
         }
     }
 }
@@ -77,7 +83,8 @@ pub fn render(ctx: &egui::Context, devices: &[WalkmanDevice], state: &mut AboutS
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| match state.tab {
             AboutTab::Hardware => render_hardware_tab(ui, devices),
             AboutTab::SupportedDaps => render_supported_daps_tab(ui),
-            AboutTab::Credits => render_credits_tab(ui),
+            AboutTab::EngineRules => render_engine_rules_tab(ui),
+            AboutTab::DeveloperSupport => render_developer_support_tab(ui),
         });
     });
 }
@@ -127,12 +134,55 @@ fn render_supported_daps_tab(ui: &mut egui::Ui) {
     }
 }
 
-fn render_credits_tab(ui: &mut egui::Ui) {
-    ui.label(egui::RichText::new("Walkman Studio").font(font::body_medium()).color(color::SILVER_LIGHT));
-    ui.label(egui::RichText::new("A music management app for Sony Walkman digital audio players.").font(font::callout()).color(color::SILVER_MUTED));
-    ui.add_space(10.0);
-    ui.label(egui::RichText::new("Built with egui/eframe, symphonia, rodio, and lofty.").font(font::caption()).color(color::SILVER_MUTED));
-    ui.label(egui::RichText::new("Lyrics via LRCLIB and Lyrics.ovh. Metadata via iTunes Search and Deezer.").font(font::caption()).color(color::SILVER_MUTED));
+/// The 4 compliance "rule cards" from `AboutWalkmanStudioView.swift`'s `engineRulesTabView`,
+/// carried over verbatim (title + detail text) rather than paraphrased.
+const ENGINE_RULES: [(&str, &str); 4] = [
+    (
+        "Baseline RGB JPEG Artwork",
+        "Strips progressive passes, CMYK color spaces, and limits resolution to 800\u{d7}800 to prevent display engine freezes.",
+    ),
+    (
+        "Strict ID3v2.3 (UTF-16)",
+        "Enforces UTF-16 with BOM (encoding=1) and binary ID3v2.3 tags, avoiding ID3v2.4 database corruption.",
+    ),
+    (
+        "CRLF Relative .M3U8 Playlists",
+        "Writes Windows-compliant CRLF (\\r\\n) line endings and relative POSIX paths directly into /MUSIC/.",
+    ),
+    (
+        "macOS Shadow File Purge",
+        "Merges AppleDouble forks with dot_clean -m and removes ._* and .DS_Store ghost files before safe eject.",
+    ),
+];
+
+fn render_engine_rules_tab(ui: &mut egui::Ui) {
+    for (title, detail) in ENGINE_RULES {
+        glass::liquid_glass(glass::State::Normal).show(ui, |ui| {
+            ui.set_min_width(ui.available_width() - 16.0);
+            ui.label(egui::RichText::new(title).font(font::body_medium()).color(color::SILVER_LIGHT));
+            ui.label(egui::RichText::new(detail).font(font::caption()).color(color::SILVER_MUTED));
+        });
+        ui.add_space(8.0);
+    }
+}
+
+fn render_developer_support_tab(ui: &mut egui::Ui) {
+    ui.horizontal(|ui| {
+        ui.label(egui::RichText::new("John Lloyd Malabanan").font(font::title2()).color(color::SILVER_LIGHT));
+        ui.label(egui::RichText::new("Creator").font(font::badge()).color(color::HIRES_GOLD));
+    });
+    ui.label(egui::RichText::new("GitHub: @Jhay-EL \u{2022} UX/UI Designer & Software Developer").font(font::subheadline_medium()).color(color::SILVER_MUTED));
+    ui.add_space(8.0);
+    ui.label(
+        egui::RichText::new(
+            "Walkman Studio was designed and engineered from the ground up to solve the challenges of using \
+             modern macOS with Sony Walkman digital audio players. It automates strict ID3v2.3 & FLAC tagging, \
+             Baseline RGB JPEG cover art conversion, Sony 12 Tone / SenseMe acoustic analysis, synchronized .LRC \
+             lyrics, batch metadata editing, dual-partition storage routing, and AppleDouble ghost file cleanup.",
+        )
+        .font(font::callout())
+        .color(color::SILVER_MUTED),
+    );
 }
 
 #[cfg(test)]
@@ -172,7 +222,7 @@ mod tests {
 
     #[test]
     fn open_resets_to_the_hardware_tab() {
-        let mut state = AboutSheetState { open: false, tab: AboutTab::Credits };
+        let mut state = AboutSheetState { open: false, tab: AboutTab::DeveloperSupport };
         state.open();
         assert!(state.open);
         assert_eq!(state.tab, AboutTab::Hardware);
@@ -184,7 +234,13 @@ mod tests {
         crate::theme::install_fonts(&ctx);
 
         let devices = vec![sample_device()];
-        for (devices, tab) in [(Vec::new(), AboutTab::Hardware), (devices.clone(), AboutTab::Hardware), (devices, AboutTab::SupportedDaps), (Vec::new(), AboutTab::Credits)] {
+        for (devices, tab) in [
+            (Vec::new(), AboutTab::Hardware),
+            (devices.clone(), AboutTab::Hardware),
+            (devices, AboutTab::SupportedDaps),
+            (Vec::new(), AboutTab::EngineRules),
+            (Vec::new(), AboutTab::DeveloperSupport),
+        ] {
             let mut state = AboutSheetState { open: true, tab };
             let _ = ctx.run(egui::RawInput::default(), |ctx| {
                 egui::CentralPanel::default().show(ctx, |_ui| {});

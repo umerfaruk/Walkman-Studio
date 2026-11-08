@@ -31,6 +31,9 @@ pub enum AlbumFilter {
     #[default]
     AllAlbums,
     Selected,
+    /// `BackupRestoreView.swift`'s private `AlbumFilter.hiRes` ("Hi-Res Only") — restricts
+    /// the Selected-Albums scope's checklist to Hi-Res albums only.
+    HiRes,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -38,6 +41,9 @@ pub enum TrackFilter {
     #[default]
     AllTracks,
     Selected,
+    /// `BackupRestoreView.swift`'s private `TrackFilter.hiRes` ("Hi-Res Only") — restricts
+    /// the Selected-Tracks scope's checklist to Hi-Res tracks only.
+    HiRes,
 }
 
 /// Display label for a scope, matching R12.2's own wording.
@@ -172,17 +178,39 @@ fn render_backup_form(ui: &mut egui::Ui, tracks: &[Track], state: &mut BackupRes
     if ui.add(button::Button::new("Start Backup", button::Variant::Prominent).enabled(can_start)).clicked() {
         state.commands.push(BackupRestoreCommand::StartBackup {
             scope: state.scope,
-            selected_album_ids: state.selected_album_ids.clone(),
-            selected_track_ids: state.selected_track_ids.clone(),
+            selected_album_ids: resolve_selected_album_ids(tracks, state.album_filter, &state.selected_album_ids),
+            selected_track_ids: resolve_selected_track_ids(tracks, state.track_filter, &state.selected_track_ids),
             destination: state.destination.clone(),
             passphrase: state.encrypt.then(|| state.passphrase.clone()),
         });
     }
 }
 
+/// Resolves `filter` into the album-id list `BackupRestoreCommand::StartBackup` carries.
+/// `HiRes` is its own selection mode (every Hi-Res album, no manual checklist), matching
+/// `BackupRestoreView.swift`'s `AlbumFilter.hiRes` — resolved here into the same id-list
+/// shape `Selected`'s manual checklist already produces, so the command itself doesn't need
+/// a second field for it.
+pub fn resolve_selected_album_ids(tracks: &[Track], filter: AlbumFilter, manually_selected: &[String]) -> Vec<String> {
+    if filter == AlbumFilter::HiRes {
+        group_into_albums(tracks).iter().filter(|a| a.is_hi_res).map(|a| a.id()).collect()
+    } else {
+        manually_selected.to_vec()
+    }
+}
+
+/// Same as [`resolve_selected_album_ids`] for tracks/`TrackFilter`.
+pub fn resolve_selected_track_ids(tracks: &[Track], filter: TrackFilter, manually_selected: &[String]) -> Vec<String> {
+    if filter == TrackFilter::HiRes {
+        tracks.iter().filter(|t| t.is_hi_res()).map(|t| t.id().to_owned()).collect()
+    } else {
+        manually_selected.to_vec()
+    }
+}
+
 fn render_album_filter(ui: &mut egui::Ui, tracks: &[Track], state: &mut BackupRestoreViewState) {
     ui.horizontal(|ui| {
-        for (filter, label) in [(AlbumFilter::AllAlbums, "All Albums"), (AlbumFilter::Selected, "Selected")] {
+        for (filter, label) in [(AlbumFilter::AllAlbums, "All Albums"), (AlbumFilter::Selected, "Selected"), (AlbumFilter::HiRes, "Hi-Res Only")] {
             let variant = if state.album_filter == filter { button::Variant::Capsule } else { button::Variant::Glass };
             if ui.add(button::Button::new(label, variant)).clicked() {
                 state.album_filter = filter;
@@ -209,7 +237,7 @@ fn render_album_filter(ui: &mut egui::Ui, tracks: &[Track], state: &mut BackupRe
 
 fn render_track_filter(ui: &mut egui::Ui, tracks: &[Track], state: &mut BackupRestoreViewState) {
     ui.horizontal(|ui| {
-        for (filter, label) in [(TrackFilter::AllTracks, "All Tracks"), (TrackFilter::Selected, "Selected")] {
+        for (filter, label) in [(TrackFilter::AllTracks, "All Tracks"), (TrackFilter::Selected, "Selected"), (TrackFilter::HiRes, "Hi-Res Only")] {
             let variant = if state.track_filter == filter { button::Variant::Capsule } else { button::Variant::Glass };
             if ui.add(button::Button::new(label, variant)).clicked() {
                 state.track_filter = filter;
@@ -326,6 +354,40 @@ mod tests {
         }
     }
 
+    // ---- Hi-Res filter resolution (parity with BackupRestoreView.swift's AlbumFilter/
+    // TrackFilter.hiRes, task 19.4) ----
+
+    #[test]
+    fn resolve_selected_album_ids_uses_every_hi_res_album_when_filter_is_hi_res() {
+        let tracks = vec![sample_track("Song A", "Album 1"), sample_track("Hi Song", "Hi Album")];
+        let mut hi_res = tracks[1].clone();
+        hi_res.bits_per_sample = 24;
+        hi_res.sample_rate = 96_000;
+        let tracks = vec![tracks[0].clone(), hi_res];
+
+        let ids = resolve_selected_album_ids(&tracks, AlbumFilter::HiRes, &[]);
+        assert_eq!(ids.len(), 1);
+        assert!(ids[0].to_lowercase().contains("hi album"));
+    }
+
+    #[test]
+    fn resolve_selected_album_ids_uses_the_manual_list_when_filter_is_selected() {
+        let tracks = vec![sample_track("Song A", "Album 1")];
+        let manual = vec!["some-album-id".to_string()];
+        assert_eq!(resolve_selected_album_ids(&tracks, AlbumFilter::Selected, &manual), manual);
+    }
+
+    #[test]
+    fn resolve_selected_track_ids_uses_every_hi_res_track_when_filter_is_hi_res() {
+        let mut hi_res = sample_track("Hi Song", "Album 1");
+        hi_res.bits_per_sample = 24;
+        hi_res.sample_rate = 96_000;
+        let tracks = vec![sample_track("Song A", "Album 1"), hi_res.clone()];
+
+        let ids = resolve_selected_track_ids(&tracks, TrackFilter::HiRes, &[]);
+        assert_eq!(ids, vec![hi_res.id().to_owned()]);
+    }
+
     // ---- Default state ----
 
     #[test]
@@ -357,8 +419,21 @@ mod tests {
             ..BackupRestoreViewState::default()
         };
         let mut encrypted = BackupRestoreViewState { encrypt: true, ..BackupRestoreViewState::default() };
+        let mut backup_hires_albums =
+            BackupRestoreViewState { scope: BackupScope::SelectedAlbums, album_filter: AlbumFilter::HiRes, ..BackupRestoreViewState::default() };
+        let mut backup_hires_tracks =
+            BackupRestoreViewState { scope: BackupScope::SelectedTracks, track_filter: TrackFilter::HiRes, ..BackupRestoreViewState::default() };
 
-        for state in [&mut backup_full, &mut backup_selected_albums, &mut backup_selected_tracks, &mut restore, &mut in_progress, &mut encrypted] {
+        for state in [
+            &mut backup_full,
+            &mut backup_selected_albums,
+            &mut backup_selected_tracks,
+            &mut restore,
+            &mut in_progress,
+            &mut encrypted,
+            &mut backup_hires_albums,
+            &mut backup_hires_tracks,
+        ] {
             let _ = ctx.run(egui::RawInput::default(), |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
                     render(ui, &tracks, state);

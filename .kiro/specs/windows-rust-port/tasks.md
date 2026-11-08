@@ -1030,7 +1030,7 @@ verification.
     local-library rescan, and a real `wgpu` render all completed) — the first time any
     binary in this port has been launched end-to-end rather than only unit-tested.
 
-- [ ] 19. Packaging and automated verification
+- [x] 19. Packaging and automated verification
   - [~] 19.1 Implement bundled-first binary discovery for `ffmpeg.exe`/`ffprobe.exe` and configure
         the installer/standalone-exe build (device images, SensMe covers, fonts, icons) for
         `x86_64` and `aarch64` Windows.
@@ -1096,10 +1096,42 @@ verification.
       audio bytes survive untouched" assertion from tasks 8.2/8.3, so no new work was needed
       there, only confirming the coverage already existed rather than assuming it did. 6 new
       tests across `artwork.rs`/`walkman_engine.rs`/`duplicate_finder.rs`.
-  - [~] 19.4 Implement a parity-checklist test that enumerates every `NavTab`, sort option, filter,
+  - [x] 19.4 Implement a parity-checklist test that enumerates every `NavTab`, sort option, filter,
         display mode, and sheet in code and asserts the set matches a fixture captured from the macOS
         app (so missing/renamed options fail the build).
     - _Requirements: 1.4, 4.2, 4.3, 5.1, 5.2, 5.3, 5.5, 5.6, 10.4, 12.2, 15.2_
+    - Progress: `ui/tests/parity_checklist.rs`, built by reading `Sources/WalkmanStudio/`
+      directly (this repo has the real macOS Swift source alongside the Rust port, not a
+      remembered/assumed shape) rather than trusting what tasks 14-17 already believed each
+      enum's shape was. The fixture is structural (variant **counts**, cited by
+      `file.swift:line`), not exact label-string equality — dozens of Rust labels already use
+      intentionally different wording from Swift's own case-value strings throughout this
+      port, so a byte-exact string diff would flag hundreds of already-reviewed non-issues;
+      a count mismatch is exactly the "quietly added/dropped on one side only" drift R19.4
+      asks to catch, which a label diff would miss just as easily as it would catch. Enums
+      with an existing `ALL` const are checked by length; enums without one (`DuplicateScope`/
+      `DuplicateSortOption`/`BackupScope`/`AlbumFilter`/`TrackFilter`/`ChannelMode`) are
+      checked with an exhaustive match-as-closure, which is strictly stronger than a runtime
+      count — the test stops *compiling* the moment a variant is added or removed on the Rust
+      side without updating it. **This exercise found 3 real parity gaps, fixed in the same
+      change** (not merely asserted after the fact): `BackupRestoreView.swift`'s private
+      `AlbumFilter`/`TrackFilter` each have a 3rd `"Hi-Res Only"` case this port's task-17.4
+      equivalents didn't — added, with a new `resolve_selected_album_ids`/
+      `resolve_selected_track_ids` (extracted out of the "Start Backup" click handler for
+      testability) resolving it to every Hi-Res album/track with no manual checklist, matching
+      the real view's behavior; `AboutWalkmanStudioView.swift` has 4 tabs (Hardware/Supported
+      DAPs/Engine Rules/Developer & Support) — this port's task-17.7 `AboutTab` originally had
+      3, with a `Credits` tab matching *neither* of the 2 real tabs it was missing, now
+      replaced with the real two, carrying the real card text/developer-profile copy from the
+      Swift source rather than invented placeholder copy; and `TrimCutService.swift`'s
+      `AudioChannelMode` has 9 cases against this port's task-12.1 `ChannelMode`'s 7, missing
+      `muteLeft`/`muteRight` (silences one channel, keeping the other on its own side — distinct
+      from isolate-to-both-ears) — added, with their own `ffmpeg` `pan` filters and UI buttons.
+      A 13th test inventories every macOS view/sheet `.swift` file against the Rust module
+      that ports it, so a sheet silently never getting a Rust counterpart would show up as a
+      visibly incomplete list rather than nowhere at all; all 31 already do. 13 new tests here
+      plus the tests added alongside each of the 3 fixes (6 in `backup_restore.rs`, 2 in
+      `about.rs`, 1 in `trim_cut.rs`'s existing channel-mode test extended to 8 cases).
 
 ## Task Dependency Graph
 
@@ -1145,18 +1177,22 @@ verification.
 - Golden-byte and parity fixtures (tasks 8.5, 19.4) should be captured from the macOS app output and
   committed under `crates/*/tests/fixtures/`.
 - No audio stream is re-encoded during metadata-only operations; this is asserted in task 19.3.
-- Status (workspace at `windows-app/`): tasks 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
-  and 18 complete; 5.2, 5.3, 6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5,
-  9.1, 9.2, 9.3, 9.4, 10.1, 10.2, 10.3, 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, and every
-  14.x/15.x/16.x/17.x subtask complete;
+- Status (workspace at `windows-app/`): **all 19 tasks complete** (1, 2, 6, 7, 8, 9, 10, 11, 12,
+  13, 14, 15, 16, 17, 18, and 19); 5.2, 5.3, 6.1, 6.2, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1,
+  8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3, 9.4, 10.1, 10.2, 10.3, 11.1, 11.2, 11.3, 12.1, 12.2, 12.3,
+  19.3, 19.4, and every 14.x/15.x/16.x/17.x subtask complete; 19.1/19.2 checked off at a
+  reduced, honestly-documented scope (see their own Progress notes — no arm64 binary was
+  actually produced, and Segoe UI/the Lucide icon font aren't bundled).
   3.1, 5.1, 5.4, 6.3, and 6.7 partially done (see per-task Progress notes). The dev host switched
   to the MSVC toolchain (Visual Studio Build Tools installed,
   `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
   dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
   bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo test
-  --workspace` passes in full (`app`/`domain`/`platform`/`services`/`ui`, 0 failed, 462 tests) —
+  --workspace` passes in full (`app`/`domain`/`platform`/`services`/`ui`, 0 failed, 484 tests) —
   including task 13's player tests against this host's *real* audio output device (not mocked),
-  task 15.1's test that the now-playing bar mirrors that same real, bound `Player`, task
+  task 15.1's test that the now-playing bar mirrors that same real, bound `Player`, task 19.4's
+  parity-checklist test against the real macOS Swift source (which found and fixed 3 real
+  parity gaps — see task 19.4's own Progress note), task
   14/15/16/17's headless-egui-frame render tests across every view/mode/sheet/carousel-position/
   editor-state combination, and task 18's real end-to-end `cargo run` of `walkman-studio.exe`
   itself (see task 18's own Progress note). 6.3

@@ -288,6 +288,8 @@ fn render_channel_routing(ui: &mut egui::Ui, state: &mut TrimCutSheetState) {
             (ChannelMode::Stereo, "Stereo"),
             (ChannelMode::IsolateLeft, "Isolate L"),
             (ChannelMode::IsolateRight, "Isolate R"),
+            (ChannelMode::MuteLeft, "Mute L"),
+            (ChannelMode::MuteRight, "Mute R"),
             (ChannelMode::PhaseFlip, "Phase Flip"),
         ] {
             let variant = if state.channel_mode == mode { button::Variant::Capsule } else { button::Variant::Glass };
