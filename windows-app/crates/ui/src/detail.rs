@@ -49,7 +49,7 @@ pub fn section_note(nav_tab: NavTab) -> &'static str {
         NavTab::Artists => "Artist grid with avatars — ArtistsView (task 14.5).",
         NavTab::HiRes => "Hi-Res audio browser — HiResAudioView (task 14.6).",
         NavTab::LanguageStudy => "Language study browser — LanguageStudyView (task 14.7).",
-        NavTab::Playlists => "Playlist editor — PlaylistsView (task 17.3).",
+        NavTab::Playlists => "Playlist editor — PlaylistsView (task 17.3, done).",
         // --- Device ---
         NavTab::Overview => "Device overview & storage — DeviceOverviewView (task 14.8).",
         // --- Tools ---
@@ -117,7 +117,10 @@ pub fn render(ui: &mut egui::Ui, state: &mut AppState) {
         NavTab::Duplicates => {
             crate::views::duplicates::render(ui, &state.walkman_tracks, &mut state.duplicates_view);
         }
-        NavTab::Playlists | NavTab::BackupRestore => {
+        NavTab::Playlists => {
+            crate::views::playlists::render(ui, &state.playlists, &state.walkman_tracks, &mut state.playlists_view);
+        }
+        NavTab::BackupRestore => {
             section_placeholder(ui, section_title(tab), section_note(tab));
         }
     }

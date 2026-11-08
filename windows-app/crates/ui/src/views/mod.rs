@@ -8,6 +8,7 @@ pub mod artists;
 pub mod hi_res;
 pub mod language_study;
 pub mod local_library;
+pub mod playlists;
 pub mod recently_added;
 pub mod senseme;
 pub mod transfer_queue;

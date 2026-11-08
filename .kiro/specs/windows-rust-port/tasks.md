@@ -852,10 +852,32 @@ verification.
       distinctness, default state, and a headless-frame render across empty/every-sheet-
       variant/expanded-group states); wired into `detail.rs`'s `NavTab::Duplicates` arm and a
       new `AppState::duplicates_view` field.
-  - [~] 17.3 Implement `PlaylistsView`: create/rename/delete/edit `.m3u8`, add-tracks browser modes,
+  - [x] 17.3 Implement `PlaylistsView`: create/rename/delete/edit `.m3u8`, add-tracks browser modes,
         multi-select (Shift/Ctrl + header Select), reorder, floating batch action bar (Move to Top /
         Up / Down / To Bottom / remove) with instant sync.
     - _Requirements: 11.1, 11.2, 11.3_
+    - Progress: `ui/src/views/playlists.rs`, over the real `walkman_domain::models::Playlist`
+      and the `.m3u8` read/write/rename/delete functions already in `walkman_engine.rs`
+      (task 9.3) — no parallel playlist format logic. A working-copy `active_tracks: Vec<
+      String>` re-seeds from the selected `Playlist`'s real track list only when the
+      selection changes (`sync_active_tracks`, tracked via a private `loaded_for` field), so
+      the batch-bar's local edits survive re-renders without a stale selection silently
+      overwriting a freshly-picked playlist. Since a playlist's relative paths aren't unique
+      (the same track can be queued twice), selection/reorder use the row's *index* as the
+      synthetic identity for `selection::handle_click`, not the path string. `shift_selected`
+      moves the whole selected block past one adjacent row per click (not each row
+      independently), matching "group Up/Down shift"; `move_selected_to_top`/`_to_bottom`/
+      `remove_selected` are the other 3 pure reorder ops, each one call from
+      `apply_reorder`, which also emits the resulting order as a single `Reorder` command —
+      R11.1/11.3's "instant sync" is therefore literally one command per change, not a
+      batched diff. The add-tracks browser is a mode-tabbed search+checklist over whatever
+      `Track` slice the caller passes (`tracks_for_add_mode`); Albums/Artists modes sort by
+      their grouping key rather than a full drill-down browser nested inside this sheet — a
+      documented honest simplification of R11.2's "the other add-browsing modes" wording. 9
+      new tests (the 4 reorder ops at their boundaries, add-mode sorting, the sync/no-op
+      selection-change cases, and a headless-frame render across every sheet variant); wired
+      into `detail.rs`'s `NavTab::Playlists` arm and new `AppState::playlists`/
+      `playlists_view` fields.
   - [~] 17.4 Implement `BackupRestoreView`: Backup/Restore modes, 5 scopes + Album/Track filters,
         destination picker, passphrase field, progress + cancel.
     - _Requirements: 12.1, 12.2, 12.3, 12.5_
@@ -950,7 +972,7 @@ verification.
   `rustup default stable-x86_64-pc-windows-msvc`), which resolved the `windows-gnu`
   dlltool/raw-dylib linking issue and the missing-`gcc.exe` issue together (both `rusqlite`'s
   bundled SQLite and task 7/8's own needs depend on a working C compiler). `cargo test
-  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 416 tests) —
+  --workspace` passes in full (`domain`/`platform`/`services`/`ui`, 0 failed, 429 tests) —
   including task 13's player tests against this host's *real* audio output device (not mocked),
   task 15.1's test that the now-playing bar mirrors that same real, bound `Player`, and task
   14/15/16's headless-egui-frame render tests across every view/mode/sheet/carousel-position/

@@ -73,6 +73,14 @@ pub struct AppState {
     /// commands).
     pub duplicates_view: crate::views::duplicates::DuplicatesViewState,
 
+    // --- Playlists view data + state (task 17.3) ---
+    /// Every playlist on the connected Walkman. Empty until task 18 wires the real
+    /// `.m3u8` scan in.
+    pub playlists: Vec<walkman_domain::models::Playlist>,
+    /// `PlaylistsView`'s own UI state (selected playlist, working track-list copy,
+    /// selection, sheet, emitted commands).
+    pub playlists_view: crate::views::playlists::PlaylistsViewState,
+
     // --- Sidebar visibility drivers (task 4.2) ---
     //
     // These are MINIMAL scalar placeholders that drive the sidebar's visibility rules and
@@ -251,6 +259,8 @@ impl Default for AppState {
             transfer_queue_items: Vec::new(),
             transfer_queue_view: crate::views::transfer_queue::TransferQueueViewState::default(),
             duplicates_view: crate::views::duplicates::DuplicatesViewState::default(),
+            playlists: Vec::new(),
+            playlists_view: crate::views::playlists::PlaylistsViewState::default(),
 
             // No Walkman attached until a device event fires (task 9); the sidebar opens
             // in its disconnected state.
