@@ -31,7 +31,15 @@ pub fn library_db_path() -> PathBuf {
 pub struct AppServices {
     pub scanner: Arc<LibraryScanner>,
     pub local_library: Arc<LocalLibrary>,
+    // The `walkman-studio-iced` binary doesn't read `player`/`transfer_queue`/
+    // `device_events`/`file_dialogs` yet — the egui binary's `dispatch.rs` does. They're
+    // wired into the iced shell as the views/sheets that need them are ported (player:
+    // the now-playing milestone; transfer_queue/file_dialogs: the views/sheets
+    // milestones; device_events: once bridged into a real-time `Subscription`, see
+    // `lifecycle_iced.rs`'s doc comment on its current poll-only simplification).
+    #[allow(dead_code)]
     pub player: Arc<Player>,
+    #[allow(dead_code)]
     pub transfer_queue: Arc<TransferQueue>,
     pub volumes: WindowsVolumeProvider,
     /// Kept alive for the app's lifetime (never otherwise read) — its background poll
@@ -39,7 +47,9 @@ pub struct AppServices {
     /// `WindowsDeviceEvents::start`'s own doc comment.
     #[allow(dead_code)]
     pub device_events_source: Arc<walkman_platform::windows::WindowsDeviceEvents>,
+    #[allow(dead_code)]
     pub device_events: std::sync::mpsc::Receiver<walkman_platform::DeviceEvent>,
+    #[allow(dead_code)]
     pub file_dialogs: WindowsFileDialogs,
 }
 

@@ -14,13 +14,18 @@ use crate::iced_ui::theme::{color, font, sizing};
 use crate::iced_ui::widgets;
 use crate::NavTab;
 
-/// Shell-level state: which section is selected and whether the inspector is open.
-/// Grows as later milestones port more of the egui `AppState` (device/track data,
-/// per-view/per-sheet state, player state, …) into this module.
+/// Shell-level state: which section is selected, whether the inspector is open, plus the
+/// handful of real counts Milestone 4's lifecycle wiring now feeds in (sidebar badges
+/// pending the view-by-view milestone). Grows as later milestones port more of the egui
+/// `AppState` (device/track data, per-view/per-sheet state, player state, …) in.
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub nav_tab: NavTab,
     pub show_inspector: bool,
+    pub walkman_connected: bool,
+    pub device_count: usize,
+    pub local_track_count: usize,
+    pub walkman_track_count: usize,
 }
 
 impl Default for AppState {
@@ -29,6 +34,10 @@ impl Default for AppState {
             // Defaults to Local Music Library on launch, matching the egui shell.
             nav_tab: NavTab::LocalLibrary,
             show_inspector: false,
+            walkman_connected: false,
+            device_count: 0,
+            local_track_count: 0,
+            walkman_track_count: 0,
         }
     }
 }
@@ -88,8 +97,21 @@ fn sidebar(state: &AppState) -> Element<'_, Message> {
         )
     });
 
+    let status_line = if state.walkman_connected {
+        format!(
+            "{} device(s) · {} local · {} on device",
+            state.device_count, state.local_track_count, state.walkman_track_count
+        )
+    } else {
+        format!("No device · {} local tracks", state.local_track_count)
+    };
+
     container(column![
-        container(text("Walkman Studio").size(font::TITLE3.size)).padding(Padding {
+        container(column![
+            text("Walkman Studio").size(font::TITLE3.size),
+            text(status_line).size(font::CAPTION.size).color(color::SILVER_MUTED),
+        ].spacing(2))
+        .padding(Padding {
             top: 16.0,
             right: 16.0,
             bottom: 12.0,

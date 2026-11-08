@@ -5828,6 +5828,7 @@ dependencies = [
  "env_logger",
  "iced",
  "log",
+ "tokio",
  "uuid",
  "walkman-domain",
  "walkman-platform",
