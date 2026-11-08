@@ -13,11 +13,13 @@ use iced::{Border, Element, Length, Padding};
 use walkman_domain::models::{LocalMusicFolder, Track};
 
 use crate::iced_ui::theme::{color, font, sizing};
+use crate::iced_ui::views::albums as albums_view;
 use crate::iced_ui::views::artists as artists_view;
 use crate::iced_ui::views::library as library_view;
 use crate::iced_ui::views::local_library as local_library_view;
 use crate::iced_ui::views::recently_added as recently_added_view;
 use crate::iced_ui::widgets;
+use crate::views::albums::AlbumsViewState;
 use crate::views::artists::ArtistsViewState;
 use crate::views::library::LibraryViewState;
 use crate::views::local_library::LocalLibraryViewState;
@@ -41,6 +43,7 @@ pub struct AppState {
     pub recently_added_view: RecentlyAddedViewState,
     pub library_view: LibraryViewState,
     pub artists_view: ArtistsViewState,
+    pub albums_view: AlbumsViewState,
 }
 
 impl Default for AppState {
@@ -58,6 +61,7 @@ impl Default for AppState {
             recently_added_view: RecentlyAddedViewState::default(),
             library_view: LibraryViewState::default(),
             artists_view: ArtistsViewState::default(),
+            albums_view: AlbumsViewState::default(),
         }
     }
 }
@@ -70,6 +74,7 @@ pub enum Message {
     RecentlyAdded(recently_added_view::Message),
     Library(library_view::Message),
     Artists(artists_view::Message),
+    Albums(albums_view::Message),
 }
 
 pub fn update(state: &mut AppState, message: Message) {
@@ -80,6 +85,7 @@ pub fn update(state: &mut AppState, message: Message) {
         Message::RecentlyAdded(m) => recently_added_view::update(&mut state.recently_added_view, m),
         Message::Library(m) => library_view::update(&mut state.library_view, m),
         Message::Artists(m) => artists_view::update(&mut state.artists_view, m),
+        Message::Albums(m) => albums_view::update(&mut state.albums_view, m),
     }
 }
 
@@ -201,6 +207,9 @@ fn detail_pane(state: &AppState) -> Element<'_, Message> {
     }
     if state.nav_tab == NavTab::Artists {
         return artists_view::view(&state.walkman_tracks, &state.artists_view).map(Message::Artists);
+    }
+    if state.nav_tab == NavTab::Albums {
+        return albums_view::view(&state.walkman_tracks, &state.albums_view).map(Message::Albums);
     }
 
     container(column![

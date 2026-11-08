@@ -4,6 +4,7 @@
 //! functions — none of them touch `egui`) and only rewrites the `render` function itself
 //! as an iced `view`/`update` pair. See `local_library.rs` for the pattern.
 
+pub mod albums;
 pub mod artists;
 pub mod library;
 pub mod local_library;
